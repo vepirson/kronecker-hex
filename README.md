@@ -1,19 +1,19 @@
 # kronecker-hex
 
-A static website about the hexagonal grid whose cell $(x,d)$ has the region type $\left(\frac xd\right)\in\{-1,0,+1\}$,
-the Kronecker symbol, drawn red, blue and green, for any size of integers $x,d$.
+The hexagonal grid whose cells are the Kronecker symbol of any input size $x,d$.
 
-Everything runs in the browser: plain ES modules, exact big-integer arithmetic (`bigint`), no build step and no
-dependency except the vendored KaTeX in `vendor/katex/`.
+Plain ES modules, exact big-integer arithmetic (`bigint`), using KaTeX in `vendor/katex/`.
 
 The code is under the MIT licence (see [`LICENSE`](LICENSE)).
+
+The website supports **colorblind** mode and **dark** mode.
 
 ## Credits
 
 The question: [math.stackexchange.com/questions/5145414](https://math.stackexchange.com/questions/5145414).
 
-- The colouring and the problem come from the MSE question above, asked by fgrieu, whose own viewer is at https://ai-me.fr/.
-- The website, algorithms and proofs are due to Claude Fable 5.2, simplified and verified by the user Vepir, from the MSE answer.
+- Source is the MSE question above, asked by user fgrieu, whose viewer is at https://ai-me.fr/.
+- Authors are Claude Fable 5.2, and the user Vepir from the answer to the MSE question above.
 
 ## Pages
 
