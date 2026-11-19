@@ -18,16 +18,20 @@ import { createStore, defaultState } from "../../src/ui/store.mjs";
 import { shapeS, seedS, shapeZ, seedZ } from "../../src/core/shapes.mjs";
 
 // the fake Worker: mode "ok" runs the construction, "onerror" posts the first batch and then fails, "throw" cannot
-// be created
+// be created. FakeWorker.hold: the number of messages a worker posts before it stops and waits (the rest of the run
+// never comes), so that a test sees a run in its middle whatever the speed of the machine; held resolves when it
+// stops there.
 class FakeWorker {
   static mode = "ok";
   static made = [];
+  static hold = Infinity;
   constructor(url, opts) {
     if (FakeWorker.mode === "throw") throw new Error("workers are not available");
     this.url = String(url);
     this.opts = opts;
     this.terminated = false;
     this.posted = [];
+    this.held = new Promise((r) => (this.release = r));
     FakeWorker.made.push(this);
   }
   postMessage(msg) {
@@ -38,6 +42,7 @@ class FakeWorker {
     const send = (k) => {
       if (this.terminated) return;
       if (fail && k === 1) return void this.onerror({ preventDefault() {} });
+      if (k >= FakeWorker.hold) return void setTimeout(() => this.release(k), 0);
       if (k < out.length) {
         this.onmessage({ data: out[k] });
         setTimeout(() => send(k + 1), 0);
@@ -125,6 +130,7 @@ const withWorker = async (mode, fn) => {
     return await fn();
   } finally {
     globalThis.Worker = saved;
+    FakeWorker.hold = Infinity;
   }
 };
 
@@ -187,9 +193,12 @@ test("the runner in a worker: one address, the start message, batches, the three
 
 test("cancel: no callback follows, the events not yet handed over are returned", async () => {
   await withWorker("ok", async () => {
+    // the worker posts three messages and then waits, so the run is in its middle when cancel comes (a fast machine
+    // finished the whole run of S_1 within a fixed wait)
+    FakeWorker.hold = 3;
     const calls = [];
     const h = runConstruction(SIGN_OK, { batchMs: 10000, onEvents: () => calls.push("events"), onDone: () => calls.push("done"), onError: () => calls.push("error") });
-    await new Promise((r) => setTimeout(r, 20));
+    await FakeWorker.made[0].held;
     // the first batch is handed over at once, the next ones wait for the next hand-over
     assert.deepEqual(calls, ["events"]);
     const rest = h.cancel();
