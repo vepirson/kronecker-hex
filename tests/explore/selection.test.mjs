@@ -211,8 +211,9 @@ test("Lab: an address with a token, a genus or a preset keeps its own input and 
   assert.deepEqual(labParams(ctx.store, {}, { preset: "s1", colour: "green" }), {});
   assert.deepEqual(labParams(ctx.store, {}, { genus: "3" }), {});
   assert.deepEqual([ctx.store.get().lab.stamp, ctx.store.get().lab.input], [0, null]);
-  // a shape too large for a live run is selected but not taken: the Lab keeps what it had
-  const big = { kind: "region", complete: true, cells: Array.from({ length: 2000 }, (_, i) => [i, 0]), seed: [0, 0], colour: 0, token: null };
+  // a shape the one rule refuses before a run (a row longer than the row limit, type +1) is selected but not taken:
+  // the Lab keeps what it had
+  const big = { kind: "region", complete: true, cells: Array.from({ length: 2000 }, (_, i) => [i, 0]), seed: [0, 0], colour: 1, token: null };
   sendToLab(ctx, { cells: [[0, 0]], seed: [0, 0], colour: 0 });
   openInLab(ctx, big);
   assert.equal(ctx.store.get().selection.stamp, 2);

@@ -79,9 +79,13 @@ test("the header's entries: the page names, each tooltip says in a few words wha
   assert.deepEqual([proofs[1], proofs[2]], ["https://math.stackexchange.com/q/5145414/318073", "Proofs on Mathematics Stack Exchange"]);
   const order = [...html.matchAll(/<span class="site-nav-label">([^<]+)<\/span>/g)].map((m) => m[1]);
   assert.deepEqual(order, ["Explore", "Edit", "Algorithm", "Proofs", "Gallery"]);
-  // the site name is an icon alone on a phone: its tooltip is its accessible name
-  const name = /<a class="site-name" href="#\/" title="([^"]+)" aria-label="([^"]+)">/.exec(html);
-  assert.ok(name && name[1] === name[2], "the site name has a tooltip equal to its accessible name");
+  // the site name leads to the source code, a plain link in a new tab as the entry Proofs (no page of the site, never
+  // marked current, no icon of its own beside the mark); it is an icon alone on a phone: its tooltip is its accessible
+  // name
+  const name = /<a class="site-name" href="([^"]+)" target="_blank" rel="noopener noreferrer" title="([^"]+)" aria-label="([^"]+)">/.exec(html);
+  assert.ok(name, "the site name");
+  assert.deepEqual([name[1], name[2], name[3]], ["https://github.com/vepirson/kronecker-hex", "Source code on GitHub", "Source code on GitHub"]);
+  assert.ok(!/class="site-name"[^>]*data-(nav|external)/.test(html), "never handled by the router");
 });
 
 test("no footer: no element in index.html, no footer code in the router, no footer styles", () => {

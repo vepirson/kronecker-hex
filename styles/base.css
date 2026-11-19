@@ -199,6 +199,16 @@ canvas.hexwindow { display: block; max-width: 100%; height: auto; }
 .badge.fail { background: var(--fail); }
 .badge-box ul { margin: 4px 0; padding-left: 20px; font-size: 13px; }
 .badge-box .badge-warnings { color: var(--muted); }
+/* the progress display of a long construction (widgets/run_progress.mjs): three rows, the bar with its percent and the
+   Stop button, the place of the run (cut with an ellipsis), its times. The page places it (a floating box). */
+.run-progress { display: flex; flex-direction: column; gap: 2px; width: 300px; max-width: calc(100% - 16px); font-size: 13px; }
+.run-progress-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.run-progress-bar { position: relative; flex: 1 1 auto; min-width: 40px; height: 8px; border-radius: 4px; background: var(--btn);
+  border: 1px solid var(--border); overflow: hidden; }
+.run-progress-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--select); }
+.run-progress-percent { flex: 0 0 auto; min-width: 4ch; text-align: right; font-family: var(--mono); }
+.run-progress-line { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-progress-time { flex: 0 0 auto; white-space: nowrap; color: var(--muted); font-family: var(--mono); font-size: 12px; }
 /* the page bar of the canvas pages (widgets/page_bar.mjs): eye, pencil, flask in one row, the present page's greyed */
 .page-bar { display: inline-flex; align-items: center; gap: 1px; }
 .page-bar > [hidden] { display: none; }

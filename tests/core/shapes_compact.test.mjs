@@ -12,8 +12,8 @@ import { primesUpTo } from "../../src/core/primes.mjs";
 import { hexDisc, shapeS } from "../../src/core/shapes.mjs";
 import { shapeC, shapeC0, seedC, seedC0, ringCells, ringsC, ringC0, holesC0 } from "../../src/core/shapes_compact.mjs";
 
-// C_g is built by the green and red construction for every g <= GMAX (above it a row of the window has more than 40
-// cells with a prescribed sign), C0_g by the blue construction for every g <= GMAX0.
+// C_g is built by the green and red construction for every g <= GMAX (the members the Gallery shows), C0_g by the blue
+// construction for every g <= GMAX0.
 const GMAX = 115;
 const GMAX0 = 150;
 

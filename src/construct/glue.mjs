@@ -6,10 +6,17 @@
 
 import { bmod, modInv, digitCount, CodedError } from "../core/bigint_utils.mjs";
 import { crt } from "../core/crt.mjs";
+import { drain } from "./events.mjs";
 
 // runningCrt(pairs) with pairs [r, m] of bigints (m >= 1, pairwise coprime) adds the congruences one at a time and
 // returns { steps: [{ x, M }] (the solution 0 <= x < M after each pair), x, M }. Throws "not_coprime".
 export function runningCrt(pairs) {
+  return drain(runningCrtIter(pairs));
+}
+
+// runningCrtIter(pairs) is runningCrt as a generator: it yields { done, total } (pairs added, all pairs) after every
+// pair and returns the value of runningCrt.
+export function* runningCrtIter(pairs) {
   let x = 0n;
   let M = 1n;
   const steps = [];
@@ -28,6 +35,7 @@ export function runningCrt(pairs) {
       M *= m;
     }
     steps.push({ x, M });
+    yield { done: steps.length, total: pairs.length };
   }
   return { steps, x, M };
 }
@@ -48,8 +56,14 @@ export function xConditions(Xs, Mx, rows) {
 // digitsSoFar is the number of digits of the running solution after the step. The final x0 is computed twice (by
 // the running sum and by the product-tree CRT of the core) and the two must agree.
 export function glueX(Xs, Mx, rows) {
+  return drain(glueXIter(Xs, Mx, rows));
+}
+
+// glueXIter(Xs, Mx, rows) is glueX as a generator: it yields the records { done, total } of the running sum
+// (runningCrtIter) and returns the value of glueX.
+export function* glueXIter(Xs, Mx, rows) {
   const conds = xConditions(Xs, Mx, rows);
-  const run = runningCrt(conds.map((c) => [c.residue, c.modulus]));
+  const run = yield* runningCrtIter(conds.map((c) => [c.residue, c.modulus]));
   const tree = crt(conds.map((c) => [c.residue, c.modulus]));
   if (tree.x !== run.x || tree.M !== run.M) throw new Error("glueX: the two CRT computations differ");
   const steps = conds.map((c, k) => ({

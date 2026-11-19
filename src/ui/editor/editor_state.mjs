@@ -13,6 +13,7 @@ import { cellKey, keyToCell, compareCells, sortCells, neighbourhood } from "../.
 import { genusOfCells, holeCount, isConnected } from "../../core/regions.mjs";
 import { residueTest } from "../../core/admissible.mjs";
 import { fieldsOf, labInputRecord } from "../pages/lab/model.mjs";
+import { longestRow, rowProblem } from "../../construct/row_limit.mjs";
 
 // Largest |i| and |j| of an editor cell (the limit of the shapes the site accepts is 2^20).
 export const EDITOR_LIMIT = 1048575;
@@ -295,12 +296,13 @@ function summarise(records) {
 // analyseShape(cells) is the live analysis of a cell list: { area, empty, connected, chi, genus (1 - chi, null when
 // empty), holes (bounded components of the complement, null when empty or too large), residue, ring } where residue
 // and ring are { records (residueTest), admissible, failures (the records without a missed class) } of the shape and
-// of its neighbour ring N(S) (the condition for a blue region), and ringSize = |N(S)|.
+// of its neighbour ring N(S) (the condition for a blue region), ringSize = |N(S)| and rowMax, the number of cells of
+// its longest row (longestRow of src/construct/row_limit.mjs).
 export function analyseShape(cells) {
   const area = cells.length;
   if (area === 0) {
     const none = { records: [], admissible: true, failures: [] };
-    return { area: 0, empty: true, connected: false, chi: 0, genus: null, holes: null, residue: none, ring: none, ringSize: 0 };
+    return { area: 0, empty: true, connected: false, chi: 0, genus: null, holes: null, residue: none, ring: none, ringSize: 0, rowMax: 0 };
   }
   const g = genusOfCells(cells);
   let holes = null;
@@ -320,6 +322,7 @@ export function analyseShape(cells) {
     residue: summarise(residueTest(cells)),
     ring: summarise(residueTest(ring)),
     ringSize: ring.length,
+    rowMax: longestRow(cells).n,
   };
 }
 
@@ -330,10 +333,11 @@ export function colourCheckOf(analysis, colour) {
   return analysis[fieldsOf({ colour }).analysisPart];
 }
 
-// canSendToLab(analysis, colour) is true when the shape is non-empty, connected and passes the residue test of the
-// colour (default 1): the shape itself for 1 and -1, its neighbour ring N(S) for 0.
+// canSendToLab(analysis, colour) is true when the shape is non-empty, connected, passes the residue test of the colour
+// (default 1: the shape itself for 1 and -1, its neighbour ring N(S) for 0) and the one rule of a shape refused before
+// a run (rowProblem of src/construct/row_limit.mjs: no row longer than the row limit for 1 and -1).
 export function canSendToLab(analysis, colour = 1) {
-  return !!analysis && !analysis.empty && analysis.connected && colourCheckOf(analysis, colour).admissible;
+  return !!analysis && !analysis.empty && analysis.connected && colourCheckOf(analysis, colour).admissible && rowProblem(analysis.rowMax, colour) === null;
 }
 
 // labInputOf({ cells, seed, colour }) is the input object the Lab reads, numbers only (the Lab's input record of the

@@ -71,7 +71,8 @@ test("buildLabView: well formed after every prefix of a run with rejected candid
     const pre = events.slice(0, n);
     const v = buildLabView(pre);
     assert.equal(v.available.length, 8);
-    for (let s = 0; s < 8; s++) assert.equal(v.available[s], pre.some((e) => e.step === s));
+    // (a stepProgress event of the glue or the check does not open its step: the step has nothing to show yet)
+    for (let s = 0; s < 8; s++) assert.equal(v.available[s], pre.some((e) => e.step === s && e.type !== "stepProgress"));
     assert.equal(v.candidates.length, pre.filter((e) => e.type === "dCandidate").length);
     assert.equal(v.smallPrimes.length, pre.filter((e) => e.type === "smallPrime").length);
     assert.equal(v.xSteps.length, pre.filter((e) => e.type === "xCrtStep").length);

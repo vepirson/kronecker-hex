@@ -9,13 +9,13 @@
 //
 // Floating controls (inside the page's host element): the tools at the top left (draw, move, then undo, redo, then reset
 // to the selected region and clear, then the region type to build: right after the canvas in the keyboard order), a chip
-// at the bottom right (the verdict icon and its short text, then the page bar, then stop, details and Apply fix last),
-// the
-// progress line of a running Build at the bottom centre. A control that holds the focus and becomes disabled or hidden
+// at the bottom right (the verdict icon and its short text, then the page bar, then details and Apply fix last), and
+// while a Build runs its progress display above the chip (widgets/run_progress.mjs: the bar, where the run is, the
+// times, the one Stop of the run). A control that holds the focus and becomes disabled or hidden
 // hands the focus to the canvas. The verdict is a check when the shape can be built as a region of the chosen type, a
 // cross when it cannot and the hexagon of the draw tool while the shape is empty, its words in its tooltip and, for a
-// shape that cannot be built, beside it (verdict.mjs). For a cross of the residue test the fix of
-// src/core/shape_fix.mjs is searched in a worker after the edit (fix.worker.mjs, never while a stroke is drawn, a
+// shape that cannot be built, beside it (verdict.mjs). For a cross of the residue test or of a row too long the fix
+// of src/core/shape_fix.mjs is searched in a worker after the edit (fix.worker.mjs, never while a stroke is drawn, a
 // result for a shape that changed meanwhile is dropped), its cells get hollow marks (a mark on a cell of the shape:
 // remove it, on an empty cell: add it), and Apply fix makes it one undoable edit.
 //
@@ -38,9 +38,10 @@ import { createPageBar } from "../widgets/page_bar.mjs";
 import { createPopoverGroup } from "../widgets/popover.mjs";
 import { createEditorState, analyseShape, canSendToLab, labInputOf, colourCheckOf, COLOURS } from "./editor_state.mjs";
 import { createColourControl } from "./colour_control.mjs";
-import { quickFix, verdictWords, verdictMark, chipLine } from "./verdict.mjs";
+import { quickFix, searchesFix, verdictWords, verdictMark, chipLine } from "./verdict.mjs";
 import { startBuild } from "./build.mjs";
 import { sendToLab, inputForLab, selectRegion, sameShape, explorerTokenHref } from "../actions.mjs";
+import { createRunProgress } from "../widgets/run_progress.mjs";
 import { checkShapeCells } from "../../formats/witness.mjs";
 
 // The name of the button that applies the marked fix.
@@ -109,11 +110,6 @@ export function historyKey(e) {
   return null;
 }
 
-// buildText(progress) is the progress line of a running Build: "packing" and the Lab's progress text of the kind
-// (progressText of lab/kinds.mjs: { text } or null).
-export function buildText(progress) {
-  return progress && progress.text ? `packing: ${progress.text}` : "packing ...";
-}
 
 // mountEditor(host, { view, canvasBox, group, store, navigate, start, take, say, onChange }) shows the editor on the
 // hex view `view` (whose canvas sits in canvasBox) with its floating controls in host, and returns { load(start), fit(),
@@ -167,9 +163,8 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     onPress: { explore: () => startBuildNow(), lab: () => sendNow() },
     className: "xp-chip-btns",
   });
-  const cancelBtn = iconButton("stop", "Stop", { id: "editor-build-cancel", hidden: true });
   const detailsBtn = iconButton("details", "Details", { id: "editor-details-btn" });
-  // the chip, as the Explorer's: the verdict icon and its text | the page bar | stop, details, then Apply fix at the far
+  // the chip, as the Explorer's: the verdict icon and its text | the page bar | details, then Apply fix at the far
   // right, where the Explorer has its X
   const chip = h(
     "div",
@@ -178,14 +173,16 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     sep(),
     pageBar.el,
     sep(),
-    h("span", { class: "xp-chip-btns" }, cancelBtn, detailsBtn, fixBtn),
+    h("span", { class: "xp-chip-btns" }, detailsBtn, fixBtn),
   );
-  const progress = h("div", { class: "xp-progress float", id: "editor-progress", "aria-live": "polite", hidden: true });
+  // the progress display of a running Build (with its Stop button), above the chip, in the page only while it runs
+  const progress = createRunProgress({ host, id: "editor-progress", stopId: "editor-build-cancel", label: "Packing the shape", onStop: () => cancelBuild() });
+  progress.el.classList.add("float", "xp-run");
   // the tools right after the canvas in the keyboard order (before the page's zoom controls), the chip last
   canvasBox.after(tools);
-  host.append(chip, progress);
+  host.append(chip);
   const canvas = canvasBox.querySelector("canvas");
-  const controls = [tools, chip];
+  const controls = [tools, chip, progress.el];
   // focusLost(el): el held the focus and is a control of the editor that is now disabled or hidden
   const focusLost = (el) => !!el && controls.some((c) => c.contains(el)) && (el.disabled || el.hidden);
 
@@ -229,14 +226,16 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     const cells = state.cells();
     analysis = analyseShape(cells);
     const a = analysis;
-    // the verdict: at once from the analysis, or the fix of this very shape and type once its search has run
-    let fix = quickFix(a, state.colour);
-    if (fix === undefined) {
-      if (fixFor === state.version) fix = fixResult;
-      else scheduleFix();
+    // the verdict at once from the analysis, the fix of this very shape and type once its search has run (undefined
+    // while it runs)
+    const quick = quickFix(a, state.colour);
+    let fix = quick;
+    if (searchesFix(quick)) {
+      fix = fixFor === state.version ? fixResult : undefined;
+      if (fix === undefined) scheduleFix();
     }
     const fixCells = fix && !fix.none ? [...fix.remove, ...fix.add] : [];
-    verdict = { fix, text: verdictWords(fix, state.colour) };
+    verdict = { fix, text: verdictWords(quick, state.colour) };
     const ovs = [];
     // the outline as the Explorer draws it, with the light halo only where the plain line does not show on the empty
     // grid (halo "auto" of the overlay: the dark theme)
@@ -255,18 +254,18 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     // the residue test of the type: the shape for +1 and -1, its neighbour ring for 0
     ds.failP = colourCheckOf(a, state.colour).failures.map((r) => r.p).join(",");
     ds.seed = state.seed ? state.seed.join(",") : "";
-    ds.verdict = fix === null ? "ok" : "fail";
+    ds.verdict = quick === null ? "ok" : "fail";
     ds.fix = fix === undefined ? "pending" : fixCells.length ? "ready" : "none";
     ds.fixRemove = String(fixCells.length ? fix.remove.length : 0);
     ds.fixAdd = String(fixCells.length ? fix.add.length : 0);
     ds.fixMs = fixCells.length ? fixMs.toFixed(1) : "";
-    const ok = fix === null;
-    const mark = verdictMark(fix);
+    const ok = quick === null;
+    const mark = verdictMark(quick);
     if (verdictMarkEl.dataset.ok !== mark.ok) verdictMarkEl.replaceChildren(icon(mark.icon));
     verdictMarkEl.dataset.ok = mark.ok;
     verdictMarkEl.title = verdict.text;
     verdictMarkEl.setAttribute("aria-label", verdict.text);
-    const line = chipLine(a, fix, state.colour);
+    const line = chipLine(a, quick, state.colour);
     if (verdictText.textContent !== line) verdictText.textContent = line;
     verdictText.hidden = !line;
     // a disabled control's tooltip is its short reason, its accessible name stays the action's name
@@ -276,10 +275,11 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
       if (why) btn.title = why;
     };
     label(fixBtn, FIX_NAME, build !== null ? BUILDING : fixCells.length ? null : ok ? "Nothing to fix" : fix === undefined ? "Searching" : "No fix found");
-    pageBar.set("explore", ok ? (build !== null ? BUILDING : null) : verdict.text);
-    pageBar.set("lab", ok ? (build !== null ? BUILDING : null) : verdict.text);
-    cancelBtn.hidden = build === null;
-    progress.hidden = build === null;
+    // the packing actions: the verdict's words for a shape that cannot be built (also a row too long, the one rule of a
+    // shape refused before a run), else Packing while a Build runs
+    const packWhy = ok ? (build !== null ? BUILDING : null) : verdict.text;
+    pageBar.set("explore", packWhy);
+    pageBar.set("lab", packWhy);
     label(undoBtn, "Undo (Ctrl+Z)", state.canUndo() ? null : "Nothing to undo");
     label(redoBtn, "Redo (Ctrl+Y)", state.canRedo() ? null : "Nothing to redo");
     label(resetBtn, RESET_NAME, resetProblem(selection(), { cells, colour: state.colour }));
@@ -553,21 +553,33 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     if (state.clear()) schedule();
   });
   // the flask of the page bar
+  // canPack(): the drawing can go to a construction (its verdict, with the one rule of a shape refused before a run)
+  const canPack = () => canSendToLab(analysis, state.colour);
   function sendNow() {
-    if (!canSendToLab(analysis, state.colour) || !store || !navigate) return;
+    if (!canPack() || !store || !navigate) return;
     sendToLab({ store, navigate }, state.snapshot());
   }
 
-  // ---------- Build (the buttons and the progress line follow `build` in update) ----------
+  // ---------- Build (the buttons follow `build` in update, the progress display is in the page while it runs) ----------
   function endBuild() {
     build = null;
-    progress.textContent = "";
-    delete progress.dataset.runOn;
+    const had = progress.el.contains(document.activeElement);
+    progress.end();
+    delete progress.el.dataset.runOn;
     updateNow();
+    if (had) canvas.focus({ preventScroll: true });
+  }
+  // cancelBuild(): the Stop of the progress display (its button, or Escape inside it): the run ends at once (its worker
+  // is ended), the page is as before the run
+  function cancelBuild() {
+    if (!build) return;
+    build.cancel();
+    endBuild();
+    say("Cancelled");
   }
   // the eye of the page bar: Build, then the result in the Explorer
   function startBuildNow() {
-    if (build || !canSendToLab(analysis, state.colour)) return;
+    if (build || !canPack()) return;
     // the drawing is still the shape the Explorer opened, in its type (also after undo or a change taken back): back to
     // that Explorer view, no new construction
     const ed = store ? store.get().editor || {} : {};
@@ -578,10 +590,11 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
     }
     const input = labInputOf(state.snapshot());
     say("");
-    progress.textContent = buildText(null);
+    progress.begin();
+    progress.set({ fraction: 0, line: "Packing" });
     build = startBuild(input, {
       onProgress(p) {
-        if (!destroyed) progress.textContent = buildText(p);
+        if (!destroyed && build) progress.set(p);
       },
       onDone(result) {
         if (destroyed) return;
@@ -606,15 +619,9 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
         say(errorLine(`${info.title}. ${info.sentence}`, { code: info.code }), "error", info.code);
       },
     });
-    progress.dataset.runOn = build.runOn;
+    progress.el.dataset.runOn = build.runOn;
     updateNow();
   }
-  cancelBtn.addEventListener("click", () => {
-    if (!build) return;
-    build.cancel();
-    endBuild();
-    say("Cancelled");
-  });
 
   // start: the start shape, or the shape and history kept in the store, then the selection to take
   const kept = store ? store.get().editor || {} : {};
@@ -639,6 +646,7 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
       destroyed = true;
       if (build) build.cancel();
       build = null;
+      progress.end();
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       stopFixWorker();
@@ -659,7 +667,6 @@ export function mountEditor(host, { view, canvasBox, group = null, store, naviga
       if (ownGroup) ownGroup.destroy();
       tools.remove();
       chip.remove();
-      progress.remove();
       delete host.dataset.tool;
       view.setOverlays([]);
     },

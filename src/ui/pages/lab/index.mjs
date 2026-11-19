@@ -25,7 +25,8 @@
 // construction modules decides, its tag checked against the replayed x0), the query ?preset=..&colour=..&mode=..
 // (computed shapes live on the main thread, the compact shapes replay their stored token or recompute in the worker),
 // the selection of the site when it is newer than the Lab's input (labParams of src/ui/actions.mjs), a shape sent by
-// the shape editor or taken from the selection (store lab.input, else its copy in sessionStorage), or a start panel
+// the shape editor or taken from the selection (store lab.input, else its copy in sessionStorage), the example of the
+// home cell at the bare address while the home cell is the selection (startPlanOf of ./model.mjs), or a start panel
 // (which has no canvas: the canvas, the stepper and the table appear with the first run).
 
 import { h, useStyles, loadJson } from "../../dom.mjs";
@@ -36,8 +37,10 @@ import { createStepper } from "../../widgets/stepper.mjs";
 import { createTimeline } from "../../widgets/timeline.mjs";
 import { passBadge } from "../../widgets/badge.mjs";
 import { icon, iconButton } from "../../widgets/icons.mjs";
-import { explorerTokenHref, labParams, labHref, openInEditor, liveRunProblem } from "../../actions.mjs";
-import { EDIT_PATH } from "../../routes.mjs";
+import { explorerTokenHref, labParams, openInEditor } from "../../actions.mjs";
+import { OTHER_SHAPES_HREF } from "./step0.mjs";
+import { createRunProgress } from "../../widgets/run_progress.mjs";
+import { EDIT_PATH, LAB_PATH } from "../../routes.mjs";
 import { renderMathIn } from "../../widgets/math.mjs";
 import { createPopoverGroup } from "../../widgets/popover.mjs";
 import { createOffsetsReadout } from "../../widgets/offsets_readout.mjs";
@@ -56,6 +59,9 @@ import { withSearch, isReplay, searchKey, searchRecord, LAB_SEARCH_URL, LAB_SEAR
 
 // A live run rebuilds its view at most once per this many milliseconds (10 times per second).
 export const REBUILD_MS = 100;
+// The largest cost (signPlanCost of the Lab's model, about milliseconds) of the live run in the background that finds
+// the tries of a replayed result (seekTries).
+export const TRIES_COST = 4000;
 // Pixels per cell of a fresh canvas (a fit to the window follows as soon as the window is known).
 export const START_CELL = 16;
 // Values of R longer than this many digits are shown in the table through the big number widget.
@@ -247,11 +253,16 @@ export function mount(root, ctx) {
   const startEl = h("section", { class: "lab-start", id: "lab-start", hidden: true });
   // the bottom left of the canvas: the offsets of the cell under the pointer (the shared readout of the shape editor)
   const readout = createOffsetsReadout({ id: "lab-readout", boxClass: "lab-readout float" });
+  const viewBox = h("div", { class: "hexview lab-view" }, canvas, hoverLayer, readout.el, viewControls.el, h("div", { class: "lab-pagebar float" }, pageBar.el));
+  // the progress display of a run in the background (widgets/run_progress.mjs), over the canvas above the page bar,
+  // in the page only while such a run goes on: its Stop is the one stop of the run
+  const runProgress = createRunProgress({ host: viewBox, id: "lab-run", stopId: "lab-cancel", label: "Construction", onStop: () => cancelRun() });
+  runProgress.el.classList.add("float", "lab-run");
   const grid = h(
     "div",
     { class: "lab-grid", id: "lab-grid" },
     h("div", { class: "lab-area-text" }, errorEl, panel),
-    h("div", { class: "lab-area-canvas" }, h("div", { class: "hexview lab-view" }, canvas, hoverLayer, readout.el, viewControls.el, h("div", { class: "lab-pagebar float" }, pageBar.el)), progressEl),
+    h("div", { class: "lab-area-canvas" }, viewBox, progressEl),
     tableArea,
   );
   const work = h("div", { class: "lab-work", id: "lab-work" }, timelineEl, grid);
@@ -541,11 +552,15 @@ export function mount(root, ctx) {
     if (p && p.percent !== null) progressEl.dataset.percent = String(p.percent);
     else delete progressEl.dataset.percent;
     progressEl.dataset.running = String(status === "running");
+    // the progress display: while a run of the worker goes on (a main-thread run ends before the page draws again)
+    if (status === "running" && inWorker()) {
+      if (!runProgress.running()) runProgress.begin();
+      runProgress.set(rs.entry.runProgress(rs.view));
+    } else if (runProgress.running()) runProgress.end();
   }
 
   // the buttons of a run, made once (a live run renders ten times a second, and a button made again at each render
   // could lose a click between its press and its release)
-  const cancelBtn = h("button", { type: "button", class: "text-btn", id: "lab-cancel", title: "Stop the run", onclick: cancelRun }, "Cancel");
   const runAgainBtn = h("button", { type: "button", class: "text-btn", id: "lab-run-again", title: "Restart the run", onclick: runAgain }, "Run again");
   const recomputeBtn = h("button", { type: "button", class: "text-btn", id: "lab-recompute", onclick: recomputeLive }, "Recompute");
   const RECOMPUTE_TIP = "Run live and compare";
@@ -564,7 +579,6 @@ export function mount(root, ctx) {
 
   function renderActions() {
     const kids = [];
-    if (inWorker()) kids.push(cancelBtn);
     // a cancelled run can start again where Cancel was
     if (rs.status === "cancelled" && lastRun) kids.push(runAgainBtn);
     // Recompute keeps its place from the first run on, disabled with its reason when there is nothing to recompute
@@ -668,7 +682,7 @@ export function mount(root, ctx) {
       h("p", null, info.sentence),
       info.detail ? h("details", { class: "lab-why" }, h("summary", null, "Why"), h("p", { class: "lab-small" }, info.detail)) : null,
       info.editorLink ? h("p", null, h("a", { href: EDIT_PATH, id: "lab-error-editor" }, "Shape editor")) : null,
-      info.startLink ? h("p", null, h("a", { href: labHref(), id: "lab-error-start" }, "Choose a shape")) : null,
+      info.startLink ? h("p", null, h("a", { href: OTHER_SHAPES_HREF, id: "lab-error-start" }, "Choose a shape")) : null,
     ];
     errorEl.replaceChildren(...kids.filter(Boolean));
   }
@@ -826,6 +840,8 @@ export function mount(root, ctx) {
   function startRun(input, mode, label, { runOn, progress = false, keepPos = false, t0, check = null } = {}) {
     lastRun = { input, mode, label, opts: { runOn, progress, keepPos, check } };
     stopTries();
+    // a new run starts its progress display from 0 (its time too)
+    runProgress.end();
     act(() => {
       lastFit = null;
       const { changed } = run.begin(input, mode, label, {
@@ -852,9 +868,10 @@ export function mount(root, ctx) {
   }
 
   // seekTries() finds the tries of a replayed result that the run state does not know yet (search.mjs): first in
-  // the stored file of the presets, else by a live run of the same shape in the background when the site would run
-  // it live (liveRunProblem), whose tries count only when it gives the same x0 and d0. Until then, and when neither
-  // applies, the panels leave those lines out.
+  // the stored file of the presets, else by a live run of the same shape in the background when that run is short
+  // (the cost of its plan by signPlanCost at most TRIES_COST: the visitor did not ask for it and sees no progress of
+  // it), whose tries count only when it gives the same x0 and d0. Until then, and when neither applies, the panels
+  // leave those lines out.
   function seekTries() {
     if (destroyed || !rs.entry.hasTries || rs.status !== "done" || !rs.result || rs.result.tampered || rs.search || !isReplay(rs.view)) return;
     const result = rs.result;
@@ -870,7 +887,7 @@ export function mount(root, ctx) {
         return;
       }
       const input = inputOfResult(result);
-      if (liveRunProblem(input.shape, input.colour)) return;
+      if (model.signPlanCost(result.rows).total > TRIES_COST) return;
       const { buildView } = rs.entry;
       const events = [];
       triesJob = runConstruction(input, {
@@ -937,7 +954,10 @@ export function mount(root, ctx) {
   async function startPlan() {
     // an address without a token, genus or preset first takes the selection of the site when it is newer (labParams)
     const from = labParams(store, params, query);
-    plan = model.resolveInput({ params: from, query, storeInput: (store.get().lab || {}).input, sessionText: readSession() });
+    const start = model.startPlanOf({ params: from, query, storeInput: (store.get().lab || {}).input, sessionText: readSession() });
+    plan = start.plan;
+    // the bare address with the home cell: the example's address takes its place in the history, this page stays
+    if (start.replace) navigate(LAB_PATH, start.replace, { replace: true, silent: true });
     if (plan.kind === "none") {
       showStart(plan.problem);
       renderAll();
@@ -1118,6 +1138,7 @@ export function mount(root, ctx) {
     if (ro) ro.disconnect();
     run.cancel();
     stopTries();
+    runProgress.end();
     unsubStore();
     for (const off of tableClicks) off();
     for (const u of stepSubs.splice(0)) u();

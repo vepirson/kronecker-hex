@@ -168,16 +168,28 @@ export function cellColours(x, d) {
 //   onJoin    null (default) or (i, j, index) => boolean, called for every cell that joins (the cell (0, 0) first,
 //             index 0): true ends the loop with complete = false and stop = index.
 //   parent    null (default) or an array that receives the index of the parent of each cell (-1 for the cell (0, 0)).
+//   starts    null (default) or more start cells [[i, j], ...] after the cell (0, 0), each known to be a cell of the
+//             region (the caller's proof: a cell of a line the region contains, a cell found by an earlier fill), not
+//             tested again; the loop then is the cells connected to any start cell. Each gets parent -1, the cap counts
+//             them, a start cell outside `inside` is left out.
 //   yieldEvery, yieldAt, phase: with yieldEvery > 0 the generator yields { cells, symbols, rows } (plus phase when
 //             given) at the top of the loop once src.symbols has reached yieldAt, and then about every yieldEvery
 //             symbol evaluations.
 // Returns { cells (offsets [i, j] in breadth-first order), complete, stop (-1 unless onJoin ended the loop) }.
-export function* breadthFirst(src, colour, { cap = Infinity, inside = null, onJoin = null, parent = null, yieldEvery = 0, yieldAt = Infinity, phase = null } = {}) {
+export function* breadthFirst(src, colour, { cap = Infinity, inside = null, onJoin = null, parent = null, starts = null, yieldEvery = 0, yieldAt = Infinity, phase = null } = {}) {
   let nextYield = yieldEvery > 0 ? yieldAt : Infinity;
   const seen = new Set([cellKey(0, 0)]);
   const cells = [[0, 0]];
   if (parent !== null) parent.push(-1);
   if (onJoin !== null && onJoin(0, 0, 0)) return { cells, complete: false, stop: 0 };
+  for (const [i, j] of starts || []) {
+    const k = cellKey(i, j);
+    if (seen.has(k) || (inside !== null && !inside(i, j))) continue;
+    seen.add(k);
+    if (cells.length >= cap) return { cells, complete: false, stop: -1 };
+    cells.push([i, j]);
+    if (parent !== null) parent.push(-1);
+  }
   let complete = true;
   let stop = -1;
   let head = 0;

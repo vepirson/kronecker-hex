@@ -10,7 +10,7 @@
 import { cellKey } from "../../../../core/geometry.mjs";
 import { DOT, errorInfo, sourceOfColours } from "../model.mjs";
 import { shortNumber } from "../../../widgets/bignum.mjs";
-import { stepRef } from "../steps.mjs";
+import { stepRef, stepLabels } from "../steps.mjs";
 
 // windowSource(view) is the static colour source of the blue steps without (x0, d0): the cells of S blue, every other
 // cell empty (the neighbours must not be blue, their colour is not prescribed).
@@ -53,6 +53,57 @@ export function blueProgressText(view) {
   const s = lastStep(view);
   return { chip: blueStep(s), text: `${blueStep(s, true)} reached.`, percent: null };
 }
+
+// The weights of the parts of a blue run, in units of about a millisecond (measured in Node, only their ratios
+// matter), from the shape (n cells) and the digits D of d: the classes CLASSES per cell, the CRT of x CRT per cell and
+// squared digit, the check VERIFY per cell and digit.
+export const BLUE_COST = Object.freeze({ classes: 0.12, crt: 4e-7, verify: 1.3e-3 });
+
+// The digits of d0 as far as the run knows them: once d is chosen its digits, before that the digits of the product of
+// the primes of the classes and of the own primes, with a prime for every cell not known yet as large as the next
+// ones would be (before the classes are known: an own prime for every cell). The value only goes down as the run
+// learns more, so the fraction it gives only goes up.
+function digitsOfD(view) {
+  if (view.dChosen) return view.dChosen.digitsD;
+  const n = view.window.S.length;
+  const top = (from, count) => Math.log10(from + count * Math.log(from + count + 2) + 1);
+  if (!view.classesDone) return n * top(view.window.B, n);
+  const known = view.classes.reduce((s, c) => s + Math.log10(c.p), 0) + view.privates.reduce((s, q) => s + Math.log10(q.q), 0);
+  const left = Math.max(0, view.classesDone.remaining.length - view.privates.length);
+  const last = view.privates.length ? Math.max(...view.privates.map((q) => q.q)) : view.window.B;
+  return known + left * top(last, left);
+}
+
+// blueFraction(view) is the overall fraction of a running blue construction (0 .. 1): the classes by their progress,
+// then the CRT of x (no progress of its own: it counts once x is there), then the check by its progress. null before
+// the window event, 1 after the done event.
+export function blueFraction(view) {
+  if (!view || !view.window) return null;
+  if (view.done) return 1;
+  const C = BLUE_COST;
+  const n = view.window.S.length;
+  const D = digitsOfD(view);
+  const w = { classes: C.classes * n, crt: C.crt * n * D * D, verify: C.verify * n * D };
+  const total = w.classes + w.crt + w.verify;
+  const p = view.progress;
+  const part = (phase) => (p && p.phase === phase && p.total > 0 ? Math.min(1, p.done / p.total) : 0);
+  // (the classes are reported once they are all chosen, the rows of the check once it has ended)
+  let done = view.classes.length > 0 ? w.classes : w.classes * part("classes");
+  if (view.glued) done += w.crt + (view.verifyRows.length > 0 ? w.verify : w.verify * part("verify"));
+  return total > 0 ? Math.max(0, Math.min(1, done / total)) : 0;
+}
+
+// blueRunProgress(view) is the progress of a running blue construction for the progress display: { fraction
+// (blueFraction), line (the step reached and the percent of its part, "1. Small primes: 40%"), full (the sentence of
+// blueProgressText) }, or { fraction: null, line: "", full: null } before the start event.
+export function blueRunProgress(view) {
+  const t = blueProgressText(view);
+  if (!t) return { fraction: null, line: "", full: null };
+  const step = view.progress ? PHASE_STEP[view.progress.phase] ?? lastStep(view) : lastStep(view);
+  const line = `${BLUE_LABELS[step]}${t.percent === null ? "" : `: ${t.percent}%`}`;
+  return { fraction: blueFraction(view), line, full: t.text };
+}
+const BLUE_LABELS = Object.freeze(stepLabels("blue"));
 
 // blueStopped(view) is the error object shown when the worker stops without a result: { code: "stopped", j: null,
 // step } with the highest step reached.

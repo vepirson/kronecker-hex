@@ -210,14 +210,20 @@ test("error texts: inadmissible with its prime, row_cap with its row and count a
   assert.match(e.detail, /divisible by 2/);
   assert.equal(e.editorLink, true);
   const strip = [];
-  for (let i = 0; i < 41; i++) strip.push([i, 0]);
+  for (let i = 0; i < 47; i++) strip.push([i, 0]);
   const cap = runToEnd({ shape: strip, seed: [0, 0], colour: 1 });
   const ce = buildLabView(cap.events).error;
   assert.equal(ce.code, "row_cap");
   const ci = model.errorInfo(ce);
-  assert.equal(ci.sentence, `Row ${ce.j} has ${ce.k} cells of type +1 or -1, more than ${CAP_K}.`);
-  assert.equal(model.ROW_CAP, 40);
-  assert.ok(ce.k > 40);
+  assert.equal(ci.title, "Row limit 45 cells");
+  assert.equal(ci.sentence, `Row ${ce.j} has ${ce.k} cells.`);
+  // the editor's note says both: "<title>. <sentence>", one full stop at the end
+  assert.equal(`${ci.title}. ${ci.sentence}`, "Row limit 45 cells. Row 0 has 49 cells.");
+  assert.equal(ci.detail, null);
+  assert.equal(ci.editorLink, true);
+  assert.equal(model.ROW_CAP, CAP_K);
+  assert.equal(CAP_K, 47);
+  assert.ok(ce.k > CAP_K);
   const st = model.errorInfo({ code: "stopped", j: 7 });
   assert.match(st.sentence, /row 7/);
   assert.equal(model.errorInfo({ code: "stopped", j: null }).sentence, "The construction stopped before it finished.");

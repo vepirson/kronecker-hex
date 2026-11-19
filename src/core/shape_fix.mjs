@@ -3,20 +3,32 @@
 // A connected shape S can be built as a green or a red region exactly when S is admissible, and as a blue region
 // exactly when N(S) (the cells outside S next to S) is admissible (see admissible.mjs). A set is
 // admissible when for every prime p it misses a class of (Z/p)^2. A FIX here turns S into a non-empty connected shape
-// that passes the test of its colour.
+// that passes the test of its colour and, for green and red, has no row of more than ROW_LIMIT cells (the one rule
+// before a run, src/construct/row_limit.mjs).
 //
 // fixShape(cells, colour, options) returns
-//   null                                    when S is non-empty, connected and already passes the test of its colour,
+//   null                                    when S is non-empty, connected, already passes the test of its colour and,
+//                                           for green and red, has no row of more than ROW_LIMIT cells,
 //   { none: true, reason }                  when S is empty (reason "empty"), not connected ("not_connected"), or no
 //                                           fix was found within the bounds ("no_fix"),
 //   { remove, add, cutOff, exact, reason, classes }   otherwise:
 //     remove, add  the cells to remove from S and to add to S, each sorted by (j, i),
 //     cutOff       how many of the removed cells are removed only because the other removals cut them off from the
-//                  piece that is kept,
-//     exact        true when no set of fewer removed cells is a fix (green and red, see below), never for blue,
-//     reason       "remove_classes" (green, red), "add_neighbours" or "remove_next_to_neighbours" (blue),
-//     classes      the residue classes [p, a, b] (cells with i = a and j = b mod p) the fix empties, by prime: in S
-//                  for green and red, in N(S) for blue.
+//                  piece that is kept (0 when the fix also cuts rows),
+//     exact        true when no set of fewer removed cells is a fix (green and red, see below), never for blue and
+//                  never when the fix also cuts rows,
+//     reason       "remove_classes" (green, red), "add_neighbours" or "remove_next_to_neighbours" (blue), or, when
+//                  rows were cut, "cut_rows", alone or followed by "+remove_classes",
+//     classes      the residue classes [p, a, b] (cells with i = a and j = b mod p) the fix of the type empties, by
+//                  prime: in S for green and red, in N(S) for blue.
+//
+// The steps for a connected S, in this order:
+//   cut_rows  green and red: every row with more than ROW_LIMIT cells keeps ROW_LIMIT consecutive cells of it (in the
+//             order of i) and loses the others, and only the largest piece is kept (cutRows below),
+//   the fix of the type (below) when the residue test still fails.
+// Cells are only removed for green and red. The result is then checked: non-empty, connected, the residue test of the
+// type passed, and for green and red no row of more than ROW_LIMIT cells. A result that fails the check is never
+// returned.
 //
 // Green and red, in which sense the fix is smallest. Let F be the primes at which S hits every class. A set S \ R with
 // R inside S is admissible exactly when R contains, for every p in F, all cells of S in one class c_p (a subset of S
@@ -47,6 +59,7 @@ import { CodedError } from "./bigint_utils.mjs";
 import { NEIGHBOURS, cellKey, compareCells, neighbourhood } from "./geometry.mjs";
 import { residueTest } from "./admissible.mjs";
 import { isConnected } from "./regions.mjs";
+import { ROW_LIMIT, longestRow } from "../construct/row_limit.mjs";
 
 const mod = (a, p) => ((a % p) + p) % p;
 const classOf = (i, j, p) => mod(i, p) * p + mod(j, p);
@@ -353,6 +366,109 @@ function fixBlue(cells, opts) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// The whole fix of a connected shape: cut the long rows, then the fix of the type, checked against the run.
+
+// For each cell of a list the indices of its neighbours in the list.
+function adjacency(cells) {
+  const index = new Map(cells.map(([i, j], k) => [cellKey(i, j), k]));
+  return cells.map(([i, j]) => {
+    const out = [];
+    for (const [di, dj] of NEIGHBOURS) {
+      const w = index.get(cellKey(i + di, j + dj));
+      if (w !== undefined) out.push(w);
+    }
+    return out;
+  });
+}
+
+// The pieces of a cell list with adjacency adj, the cells with gone[k] = 1 left out: piece[k] the number of the piece
+// of cell k (-1 for a cell left out), numbered in the order of their first cell, and the size of each piece.
+function pieces(adj, gone) {
+  const piece = new Int32Array(adj.length).fill(-1);
+  const sizes = [];
+  const stack = [];
+  for (let s = 0; s < adj.length; s++) {
+    if (piece[s] >= 0 || gone[s]) continue;
+    const id = sizes.length;
+    piece[s] = id;
+    stack.push(s);
+    let size = 0;
+    while (stack.length) {
+      const v = stack.pop();
+      size++;
+      for (const w of adj[v]) {
+        if (piece[w] < 0 && !gone[w]) {
+          piece[w] = id;
+          stack.push(w);
+        }
+      }
+    }
+    sizes.push(size);
+  }
+  return { piece, sizes };
+}
+
+// The number of the largest piece (the first one on a tie).
+const largestOf = (sizes) => sizes.reduce((best, n, p) => (n > sizes[best] ? p : best), 0);
+
+// cutRows(cells): every row with more than ROW_LIMIT cells keeps ROW_LIMIT consecutive cells of it (in the order of i)
+// and loses the others, the kept cells chosen so that the largest piece of what remains is largest (on a tie the
+// leftmost), and only that largest piece is kept. Rows are handled from the top (largest j) down. The list is connected
+// and sorted, and so is the result.
+function cutRows(cells) {
+  let cur = cells;
+  for (const j of [...new Set(cells.map(([, jj]) => jj))].sort((a, b) => b - a)) {
+    const row = [];
+    cur.forEach(([, jj], k) => { if (jj === j) row.push(k); });
+    if (row.length <= ROW_LIMIT) continue;
+    const adj = adjacency(cur);
+    const gone = new Uint8Array(cur.length);
+    let best = null;
+    for (let s = 0; s + ROW_LIMIT <= row.length; s++) {
+      gone.fill(0);
+      row.forEach((k, t) => { if (t < s || t >= s + ROW_LIMIT) gone[k] = 1; });
+      const { piece, sizes } = pieces(adj, gone);
+      const p = largestOf(sizes);
+      if (best === null || sizes[p] > best.size) best = { size: sizes[p], piece, p };
+    }
+    cur = cur.filter((_, k) => best.piece[k] === best.p);
+  }
+  return cur;
+}
+
+// passes(cells, colour): the residue test of the type (the shape for +1 and -1, its neighbours for 0).
+const passes = (cells, colour) => failingPrimes(colour === 0 ? neighbourhood(cells) : cells).length === 0;
+
+// rowsFit(cells, colour): for +1 and -1 no row of more than ROW_LIMIT cells (the one rule before a run).
+const rowsFit = (cells, colour) => colour === 0 || longestRow(cells).n <= ROW_LIMIT;
+
+// The cells after a fix, sorted.
+const applied = (cells, fix) => minus(cells, fix.remove).concat(fix.add).sort(compareCells);
+
+const NO_FIX = Object.freeze({ none: true, reason: "no_fix" });
+
+// repair(list, colour, opts) for a sorted, non-empty, connected list that has a row over the limit (types +1 and -1)
+// or fails the residue test of its type. See the top of this file.
+function repair(list, colour, opts) {
+  let cur = list;
+  let last = null;
+  const steps = [];
+  if (!rowsFit(cur, colour)) {
+    cur = cutRows(cur);
+    steps.push("cut_rows");
+  }
+  if (!passes(cur, colour)) {
+    last = colour === 0 ? fixBlue(cur, opts) : fixByRemoval(cur, opts);
+    if (last.none) return last;
+    // the fix of the type alone, as it was found
+    if (steps.length === 0) return last;
+    cur = applied(cur, last);
+    steps.push(last.reason);
+  }
+  // the check of the result: non-empty, connected, the residue test of the type, no row over the limit
+  if (cur.length === 0 || !isConnected(cur) || !passes(cur, colour) || !rowsFit(cur, colour)) return NO_FIX;
+  return { remove: minus(list, cur), add: minus(cur, list), cutOff: 0, exact: false, reason: steps.join("+"), classes: last ? last.classes : [] };
+}
 
 // See the top of this file.
 export function fixShape(cells, colour, options = {}) {
@@ -369,15 +485,11 @@ export function fixShape(cells, colour, options = {}) {
   list.sort(compareCells);
   if (list.length === 0) return { none: true, reason: "empty" };
   if (!isConnected(list)) return { none: true, reason: "not_connected" };
+  if (passes(list, colour) && rowsFit(list, colour)) return null;
   const opts = {
     maxChoices: options.maxChoices ?? 20000,
     maxChange: options.maxChange ?? Math.max(60, list.length),
     maxExtensions: options.maxExtensions ?? 3,
   };
-  if (colour === 0) {
-    if (failingPrimes(neighbourhood(list)).length === 0) return null;
-    return fixBlue(list, opts);
-  }
-  if (failingPrimes(list).length === 0) return null;
-  return fixByRemoval(list, opts);
+  return repair(list, colour, opts);
 }

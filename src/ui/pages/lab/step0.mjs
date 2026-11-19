@@ -7,6 +7,8 @@
 import { genusOfCells, colourName } from "../../../core/regions.mjs";
 import { fadeOutside, outline, hollowMarks } from "../../../render/overlays.mjs";
 import { windowColours, sourceOfColours, numsBlock, typeText } from "./model.mjs";
+import { labHref } from "../../actions.mjs";
+import { SHAPES_QUERY } from "../../routes.mjs";
 
 // subCount(view): 2 items (the neighbours, the numbers) once the window is known, else 0.
 export function subCount(view) {
@@ -28,10 +30,14 @@ export function step0Data(view, sub) {
   };
 }
 
+// The link under the text of step 0 to the list of shapes of the page (its start panel, SHAPES_QUERY).
+export const OTHER_SHAPES = "Other shapes";
+export const OTHER_SHAPES_HREF = labHref({ [SHAPES_QUERY]: "1" });
+
 // renderWindow(panel, view, sub, kit, { what, id, source, markN }) is step 0 of any kind: the text (HTML),
-// the numbers (in the list with the id id) and the canvas: source(d) for the data d of step0Data, S at full strength
-// with its outline, from sub 1 on N(S) as source draws it and, with markN, marked. Returns false before the window
-// event.
+// the numbers (in the list with the id id), the link to the list of shapes (OTHER_SHAPES) and the canvas: source(d) for
+// the data d of step0Data, S at full strength with its outline, from sub 1 on N(S) as source draws it and, with markN,
+// marked. Returns false before the window event.
 export function renderWindow(panel, view, sub, kit, { what, id, source, markN = false }) {
   const { h } = kit;
   const d = step0Data(view, sub);
@@ -47,6 +53,7 @@ export function renderWindow(panel, view, sub, kit, { what, id, source, markN = 
       d.showNumbers ? ["w", "columns $m$", d.w] : null,
       d.showNumbers ? ["B", "$B=\\max\\{n,m,7\\}$", d.B] : null,
     ]),
+    h("p", { class: "lab-other-shapes" }, h("a", { href: OTHER_SHAPES_HREF, id: "lab-other-shapes" }, OTHER_SHAPES)),
   );
   kit.hex.setSource(source(d));
   kit.hex.setOverlays([fadeOutside(d.S), outline(d.S), ...(d.showN && markN ? [hollowMarks(d.N)] : [])]);

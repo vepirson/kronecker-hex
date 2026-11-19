@@ -286,6 +286,24 @@ export function boxTest({ cell, halfWidth, halfHeight, cx = 0, cy = 0 } = {}) {
   };
 }
 
+// boxRows(box) lists the rows [j, ilo, ihi] (ascending j) of the cells whose centre lies in the box of boxTest (the same
+// box object), with a margin of rounding: every cell boxTest accepts is in a row's range, a cell of the range may lie
+// just outside the box (boxTest decides).
+export function boxRows({ cell, halfWidth, halfHeight, cx = 0, cy = 0 } = {}) {
+  boxTest({ cell, halfWidth, halfHeight, cx, cy });
+  const hRow = SQ3_2 * cell;
+  const eps = 1e-9;
+  const jlo = Math.ceil((-cy - halfHeight) / hRow - eps);
+  const jhi = Math.floor((halfHeight - cy) / hRow + eps);
+  const out = [];
+  for (let j = jlo; j <= jhi; j++) {
+    const ilo = Math.ceil(j / 2 + (cx - halfWidth) / cell - eps);
+    const ihi = Math.floor(j / 2 + (cx + halfWidth) / cell + eps);
+    if (ihi >= ilo) out.push([j, ilo, ihi]);
+  }
+  return out;
+}
+
 // visibleRows(width, height, originX, originY, cell) lists the rows [j, ilo, ihi] (ascending j) of the cells whose
 // hexagon can meet the rectangle [0, width] x [0, height].
 export function visibleRows(width, height, originX, originY, cell) {

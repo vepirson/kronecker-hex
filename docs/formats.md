@@ -87,7 +87,7 @@ theorem.
 | `sha256`, `digits` | sha256 and digit counts of the decimal strings of $x_0$ and $d_0$ |
 
 **Rebuilding $d_0$.** Let $(D,M_d)$ be the CRT solution, $0\le D<M_d$, of the non-null residues $d_0\bmod p$ and of
-$d_0\equiv-j\pmod{q_1q_2}$ for every row. Then $d_0=D+\text{d0\_index}\cdot M_d$.
+$d_0\equiv-j\pmod{q_1q_2}$ for every row. Then $d_0=D+t\cdot M_d$ with $t$ the field `d0_index`.
 
 **Rebuilding $x_0$.** For every row write $d_0+j=u_j q_1 q_2 c_j$ where $u_j$ is the part of $d_0+j$ made of the
 primes $\le B$ (the row primes $q_1,q_2$ must divide what is left). Then $x_0$ is the smallest POSITIVE solution of
@@ -157,7 +157,7 @@ $-2n-1$ for $n<0$, and $w(m)$ is the bit length of $m-1$ (the width of a residue
 8. $g(s_i-i_0+1)$, $g(s_j-j_0+1)$: the seed cell, a cell of the shape.
 9. For every prime $p\le B$ ascending: $u(3)$ $x_0\bmod8$ when $p=2$, else $u(w(p))$ $x_0\bmod p$. Then $u(1)$
    "$d_0$ is constrained modulo $p$", and when 1: $u(w(p))$ $d_0\bmod p$.
-10. $g(\text{d0\_index}+1)$.
+10. $g(t+1)$ with $t$ the field `d0_index`.
 11. $n_r+2$ bits: the window row $j=j_0-1+t$ has a row entry or not ($t=0,\dots,n_r+1$). Then for every row with an
     entry, ascending $j$: $u(5)$ $e$. For $e\le30$ the row primes $q_1<q_2$ are the two smallest primes
     $\ge\max(2^{e},B+1)$ not used by an earlier row. For $e=31$ they follow explicitly as $g(q_1)$, $g(q_2)$. Then

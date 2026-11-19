@@ -26,15 +26,16 @@ test("a 2 x 2 block is inadmissible at p = 2", () => {
   assert.equal(e.step, 1);
 });
 
-test("a row of 41 sign cells stops at the cap", () => {
+test("a row of 49 sign cells stops at the cap", () => {
   const strip = [];
-  for (let i = 0; i < 39; i++) strip.push([i, 0]);
+  for (let i = 0; i < 47; i++) strip.push([i, 0]);
   const { events, result } = runToEnd({ shape: strip, seed: [0, 0], colour: -1 });
   assert.equal(result, null);
   const e = lastError(events);
   assert.equal(e.code, "row_cap");
   assert.equal(e.j, 0);
-  assert.equal(e.k, 41);
+  assert.equal(e.k, 49);
+  assert.equal(CAP_K, 47);
   assert.ok(e.k > CAP_K);
   // nothing after step 2 was emitted
   assert.ok(events.every((ev) => ev.step <= 2));

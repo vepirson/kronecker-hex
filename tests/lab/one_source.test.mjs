@@ -116,8 +116,8 @@ test("one function per action that sends a region to a page, the same conditions
   const hits = files.filter((rel) => rel.startsWith("ui/") && rel !== "ui/actions.mjs" && /#\/w\/\$\{/.test(code(rel)));
   assert.deepEqual(hits, []);
   // the conditions: a complete region of the grid offers both, one that is not complete none, a witness its editor
-  // and the Lab (a replay with a token, a live run of its shape without one), a shape above the size of a live run
-  // no Lab, with the reason
+  // and the Lab (a replay with a token, a live run of its shape without one), whatever its size; a shape of type +1 or
+  // -1 with a row longer than the row limit no Lab, with the reason
   const cells = [[0, 0], [1, 0]];
   const r = regionActions({ kind: "region", complete: true, cells, seed: [0, 0], colour: 1 });
   assert.deepEqual([!!r.edit, !!r.lab], [true, true]);
@@ -128,7 +128,9 @@ test("one function per action that sends a region to a page, the same conditions
   const big = Array.from({ length: 2000 }, (_, i) => [i, 0]);
   for (const kind of ["witness", "region"]) {
     const b = regionActions({ kind, complete: true, cells: big, seed: [0, 0], colour: 0, token: null });
-    assert.deepEqual([!!b.edit, b.lab, b.labWhy], [true, null, "Too large for a live run"], kind);
+    assert.deepEqual([!!b.edit, !!b.lab, b.labWhy], [true, true, null], `${kind} of type 0: no row solve, any size`);
+    const s = regionActions({ kind, complete: true, cells: big, seed: [0, 0], colour: 1, token: null });
+    assert.deepEqual([!!s.edit, s.lab, s.labWhy], [true, null, "Row limit 45 cells"], `${kind} of type +1 with a long row`);
   }
   const t = regionActions({ kind: "witness", complete: true, cells, seed: [0, 0], colour: -1, token: "AAAA" });
   assert.deepEqual([t.edit.colour, t.lab], [-1, { token: "AAAA" }]);

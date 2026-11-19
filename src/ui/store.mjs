@@ -10,9 +10,9 @@
 // lab { input, mode, status, events, result, step, sub },
 // prefs { palette, theme ("light", "dark", or null while no theme is chosen: the page is light) }.
 // gallery { <section id>: { page, colour } } (the page and the region type of each Gallery section, set by that page).
-// selection { shape, seed, colour, token, home, stamp } (the region selected last, null before the first: see the selection
-// of src/ui/actions.mjs), editor.stamp and lab.stamp (the stamp of the selection that the editor's drawing and the
-// Lab's input came from, 0 for none).
+// selection { shape, seed, colour, token, home, stamp } (the region selected last, null in defaultState, the home cell
+// in the site's first state, appState of router.mjs: see the selection of src/ui/actions.mjs), editor.stamp and
+// lab.stamp (the stamp of the selection that the editor's drawing and the Lab's input came from, 0 for none).
 // No bigint is allowed in the store outside lab.events and lab.result (set throws "bigint_in_store").
 
 import { CodedError } from "../core/bigint_utils.mjs";

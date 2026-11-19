@@ -70,6 +70,51 @@ export const CERTIFICATES = Object.freeze([
   }),
 ]);
 
+// The certified infinite regions: the lines of CERTIFICATES grouped by the region they lie in. The three lines of
+// type +1 meet each other (the row d = 1 and the column x = 1 at (1, 1), the column and the half row d = -1, x >= 0 at
+// (1, -1)), so they lie in one region. The half row of type -1 is a region of its own lines. Each half line of type 0
+// is a whole region: a neighbour of one of its cells that is not on it lies on a row d = +-1 or a column x = +-1 (for
+// the half rows and half columns) or is (t +- 1, t) or (t, t +- 1) (for the half diagonals), or is the cell just past
+// the end of the half line ((+-1, 0), (0, +-1), (+-1, +-1)); its two coordinates have gcd 1, so it is not of type 0.
+// A region called infinite by a path to one of its lines contains every line of its group.
+export const INFINITE_REGIONS = Object.freeze([
+  Object.freeze({ id: "plus", lines: Object.freeze(["row_d_1", "col_x_1", "row_d_m1_right"]) }),
+  Object.freeze({ id: "minus", lines: Object.freeze(["row_d_m1_left"]) }),
+  ...["col_x_0_up", "col_x_0_down", "row_d_0_right", "row_d_0_left", "diag_up", "diag_down"].map((id) => Object.freeze({ id, lines: Object.freeze([id]) })),
+]);
+
+// regionLines(id) is the list of certificates (entries of CERTIFICATES) of the region that contains the line of the
+// certificate id, [] for an unknown id.
+export function regionLines(id) {
+  const g = INFINITE_REGIONS.find((r) => r.lines.includes(id));
+  return g ? g.lines.map((l) => CERTIFICATES.find((c) => c.id === l)) : [];
+}
+
+// lineCellsInRows(certs, x0, d0, rows) is the list of the cells [i, j] (offsets from (x0, d0)) of the lines of the
+// certificates certs that lie in the rows [[j, ilo, ihi], ...] (the cells (i, j) with ilo <= i <= ihi of each row j),
+// exact: found by the formulas of the lines, wherever (x0, d0) is.
+export function lineCellsInRows(certs, x0, d0, rows) {
+  x0 = big(x0);
+  d0 = big(d0);
+  const out = [];
+  const inRange = (c, t) => (c.from === null || t >= c.from) && (c.to === null || t <= c.to);
+  for (const c of certs) {
+    for (const [j, ilo, ihi] of rows) {
+      const bj = BigInt(j);
+      if (c.kind === "row") {
+        if (c.at - d0 !== bj) continue;
+        for (let i = ilo; i <= ihi; i++) if (inRange(c, x0 + BigInt(i))) out.push([i, j]);
+      } else {
+        const bi = c.kind === "column" ? c.at - x0 : bj + c.at - (x0 - d0);
+        if (bi < BigInt(ilo) || bi > BigInt(ihi)) continue;
+        const t = c.kind === "column" ? d0 + bj : x0 + bi;
+        if (inRange(c, t)) out.push([Number(bi), j]);
+      }
+    }
+  }
+  return out;
+}
+
 const big = (v) => (typeof v === "bigint" ? v : BigInt(v));
 
 // lineCell(c, t) is the cell [x, d] (bigints) with parameter t on the line of the certificate c (t need not be in
@@ -226,11 +271,14 @@ const IDX = 4194304;
 // withPath adds infinite.path, the offsets from [0, 0] to infinite.cell along the search tree. A `stats` object is
 // filled with the cells, symbols and rows of both searches. Progress records of the second search carry
 // phase: "directed".
-// windowPart = { inside, limit } (default null: nothing more) asks, for a region that is not complete, for its part
-// around the start cell: after the searches above, a fresh breadth-first pass from the start over the cells of the
-// colour for which inside(i, j) is true, never stepping outside them, of at most `limit` cells. It adds the field
+// windowPart = { inside, limit, rows } (default null: nothing more) asks, for a region that is not complete, for its
+// part in a box: after the searches above, a fresh breadth-first pass over the cells of the colour for which
+// inside(i, j) is true, never stepping outside them, of at most `limit` cells, from the start cell, the cells the fill
+// found and, for a region certified infinite, the cells of the lines of its region (regionLines) in the rows of the box
+// (rows = [[j, ilo, ihi], ...], optional). It adds the field
 // window = { cells (sorted by (j, i)), count, cut, limit } to the record, cut true when a further cell was left out
-// (the cells kept are then the first `limit` ones in breadth-first order). Its progress records carry
+// (the cells kept are then the first `limit` ones in breadth-first order). Every cell of it is joined to a start cell
+// by a path inside the box, so it is a cell of the region. Its progress records carry
 // phase: "window", its numbers go to stats.window = { cells, symbols, rows, cut }. A complete region gets no such
 // field. Throws "bad_cap" on a bad cap or directedCap, "bad_window" on a bad windowPart, "guard_failed" if a hit
 // cannot be confirmed.
@@ -396,12 +444,14 @@ export function* floodFillCertified(x, d, { cap = 200000, yieldEvery = 0, direct
   }
   cells.sort(compareCells);
 
-  // 4. the part around the start cell of a region that is not complete (the same loop as the fill, inside the box)
+  // 4. the part of a region that is not complete inside the box (the same loop as the fill, inside the box), from the
+  // start cell, the cells the fill found and, for a region certified infinite, every cell of its lines in the box
   if (windowPart !== null && !complete) {
     const symbols0 = src.symbols;
     const rows0 = rows.size;
+    const lineStarts = out.infinite && windowPart.rows ? lineCellsInRows(regionLines(out.infinite.id), x, d, windowPart.rows) : [];
     const part = yield* breadthFirst(src, c0, {
-      cap: windowPart.limit, inside: windowPart.inside, yieldEvery, yieldAt: yieldEvery > 0 ? src.symbols + yieldEvery : Infinity, phase: "window",
+      cap: windowPart.limit, inside: windowPart.inside, starts: lineStarts.concat(cells), yieldEvery, yieldAt: yieldEvery > 0 ? src.symbols + yieldEvery : Infinity, phase: "window",
     });
     part.cells.sort(compareCells);
     out.window = { cells: part.cells, count: part.cells.length, cut: !part.complete, limit: windowPart.limit };

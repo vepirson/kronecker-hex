@@ -16,10 +16,19 @@ export const EDIT_PATH = "#/edit";
 export const LAB_PATH = "#/algorithm";
 export const LAB_ALIAS = "#/lab";
 
+// The query key of the Algorithm page's list of shapes (its start panel): #/algorithm?shapes=1 shows the list whatever
+// the page's input and the selection are (the bare #/algorithm runs the input when there is one).
+export const SHAPES_QUERY = "shapes";
+
 // homeQuery() is the address query of HOME_VIEW: { x, d, z }.
 export function homeQuery() {
   return { x: String(HOME_VIEW.x), d: String(HOME_VIEW.d), z: String(HOME_VIEW.cell) };
 }
+
+// The region of the home cell, as the Explorer's default state selects it: the cell (HOME_VIEW.x, HOME_VIEW.d) alone is
+// a region of type 0 (offsets from that cell, its seed the cell itself). Every visit starts with it as the selection
+// of the site (appState of router.mjs), wherever the visit starts.
+export const HOME_REGION = Object.freeze({ shape: Object.freeze([Object.freeze([0, 0])]), seed: Object.freeze([0, 0]), colour: 0 });
 
 export const ROUTES = [
   { pattern: EXPLORE_PATH, page: "explore", layout: "app", title: "Explore", load: () => import("./pages/explore.mjs") },

@@ -5,10 +5,12 @@
 //
 // A verdict is decided in two steps. quickFix(analysis, colour) needs only the live analysis of the shape (it is
 // cheap and runs on every redraw): null when the shape can be built, { none: true, reason } for an empty or a
-// disconnected shape, undefined when the residue test of the type fails and the fix must be searched (fixOf of
-// fix.worker.mjs, run by the editor in its worker after the edit). Both give results of the form of fixShape.
+// disconnected shape or one with a row too long, undefined when the residue test of the type fails. The fix itself is
+// searched for a failed residue test and for a row too long (searchesFix: fixOf of fix.worker.mjs, run by the editor
+// in its worker after the edit). Both give results of the form of fixShape.
 
-import { canSendToLab, cellsText } from "./editor_state.mjs";
+import { canSendToLab, cellsText, colourCheckOf } from "./editor_state.mjs";
+import { rowProblem, ROW_TOO_LONG } from "../../construct/row_limit.mjs";
 import { fieldsOf } from "../pages/lab/model.mjs";
 
 // The label of each region type: "+1", "-1" and "0" for the colours 1, -1 and 0.
@@ -20,12 +22,20 @@ export function typeLabel(colour) {
 }
 
 // quickFix(analysis, colour) is the verdict that needs no search: null (the shape can be built), { none: true,
-// reason: "empty" } or { none: true, reason: "not_connected" } (no fix is offered), or undefined (the residue test of
-// the type fails, the search of fix.worker.mjs finds the fix).
+// reason: "empty" }, { none: true, reason: "not_connected" } or { none: true, reason: "row_too_long" } (a row longer
+// than the row limit, the one rule of src/construct/row_limit.mjs), or undefined (the residue test of the type fails).
 export function quickFix(analysis, colour) {
   if (!analysis || analysis.empty) return { none: true, reason: "empty" };
   if (!analysis.connected) return { none: true, reason: "not_connected" };
-  return canSendToLab(analysis, colour) ? null : undefined;
+  if (canSendToLab(analysis, colour)) return null;
+  if (colourCheckOf(analysis, colour).admissible && rowProblem(analysis.rowMax, colour)) return { none: true, reason: "row_too_long" };
+  return undefined;
+}
+
+// searchesFix(verdict) is true when the fix of a shape with this result of quickFix is searched in the fix worker: the
+// residue test fails, or a row is too long. An empty or a disconnected shape gets no fix.
+export function searchesFix(verdict) {
+  return verdict === undefined || (!!verdict && verdict.none === true && verdict.reason === "row_too_long");
 }
 
 // The words of a failed residue test, by the part of the analysis that the type tests (analysisPart of the Lab's kind
@@ -35,13 +45,14 @@ const FAILED_TEST = Object.freeze({ residue: "Not admissible", ring: "Neighbours
 const isEmpty = (fix) => !!fix && fix.none === true && fix.reason === "empty";
 
 // verdictWords(fix, colour) is the verdict in a word or two, for a result of quickFix or fixShape (undefined while the
-// fix is not known yet): "Can be packed", "Empty", "Not connected", "Not admissible" (the residue test of the shape
-// fails, types +1 and -1) or "Neighbours not admissible" (the residue test of its neighbours fails, type 0). It is
-// also the reason of every action that needs a shape that can be built.
+// fix is not known yet): "Can be packed", "Empty", "Not connected", ROW_TOO_LONG, "Not admissible" (the residue test
+// of the shape fails, types +1 and -1) or "Neighbours not admissible" (the residue test of its neighbours fails, type
+// 0). It is also the reason of every action that needs a shape that can be built.
 export function verdictWords(fix, colour) {
   if (fix === null) return "Can be packed";
   if (isEmpty(fix)) return "Empty";
   if (fix && fix.none && fix.reason === "not_connected") return "Not connected";
+  if (fix && fix.none && fix.reason === "row_too_long") return ROW_TOO_LONG;
   return FAILED_TEST[fieldsOf({ colour }).analysisPart];
 }
 

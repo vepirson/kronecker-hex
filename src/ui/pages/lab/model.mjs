@@ -14,10 +14,12 @@ import { residueTest } from "../../../core/admissible.mjs";
 import { staticSource } from "../../../render/hex_canvas.mjs";
 import { labels, lighterOf } from "../../../render/overlays.mjs";
 import { CAP_K } from "../../../construct/pipeline.mjs";
+import { ROW_TOO_LONG } from "../../../construct/row_limit.mjs";
 import { kindOf, runPlace } from "../../../construct/index.mjs";
 import { messageOf } from "../../dom.mjs";
 import { colourName, colourOfName } from "../../../core/regions.mjs";
-import { stepRef } from "./steps.mjs";
+import { stepRef, stepLabels } from "./steps.mjs";
+import { SHAPES_QUERY } from "../../routes.mjs";
 
 // ---------- files ----------
 
@@ -243,12 +245,12 @@ export function presetInput(plan) {
   return f.inputRecord({ shape, seed, colour: plan.colour, lift: plan.lift, id: null });
 }
 
-// The largest genus of the box "any genus", per kind: the largest g whose live run, from the click to PASS, stayed
-// under 4 s in three runs of three in headless Chrome on the development machine, and so did every smaller g that
-// was measured (a margin below the 5 s that the page promises in its tests). S_g^{+-1} in green or red: 3.2 s at g = 25,
-// 3.6 s at 26. S_g^{0} in blue: at most 3.0 s for g = 190, 200, 210 and 211 to 219, 3.8 to 5.1 s at g = 220 in two of
-// three sessions, at most 3.3 s at 249 (the blue runs vary by up to a second from run to run).
-export const GENUS_LIMITS = Object.freeze({ sign: 25, blue: 210 });
+// The largest genus of the box "any genus", per kind: a bound of the memory of a run, not of its time (a long run
+// shows its progress and can be stopped). The largest g measured whose live run stayed under 1 GB and 10 minutes in
+// Node on the development machine. S_g^{+-1}: 12 s and 441 MB at g = 50, 30 s and 667 MB at 60, 31 s and 905 MB at
+// 70, 39 s and 1066 MB at 75 (the run keeps every partial x of the gluing, whose size grows with the square of the
+// rows). S_g^{0}: 57 s and 411 MB at g = 800, 198 s and 614 MB at 1200.
+export const GENUS_LIMITS = Object.freeze({ sign: 70, blue: 1200 });
 
 // The pure fields of the two kinds, one object per kind (kindOf of the construction modules picks it). The entries
 // of the Lab's registry (kinds.mjs) take these fields and add the display parts. Every function of this module that
@@ -378,9 +380,11 @@ export function parseSessionRecord(text) {
 //      for a bad genus or colour and above the limit, then the query ?preset=..&colour=..&mode=..: the plan of
 //      resolvePreset, or { kind: "none", problem } for an unknown preset or colour, and for a computed preset whose
 //      colour check fails (the reason)
-//   3. the store's lab.input, else the session copy: { kind: "input", input (labInputRecord), from: "store" |
+//   3. the query ?shapes=.. (SHAPES_QUERY of routes.mjs, the link to the list of shapes): { kind: "none", problem:
+//      null } (the start panel)
+//   4. the store's lab.input, else the session copy: { kind: "input", input (labInputRecord), from: "store" |
 //      "session", mode: "live", runOn (runPlace of the construction modules) }
-//   4. { kind: "none", problem: null } (the start panel).
+//   5. { kind: "none", problem: null } (the start panel).
 export function resolveInput({ params = {}, query = {}, storeInput = null, sessionText = null } = {}) {
   if (params && typeof params.token === "string" && params.token !== "") {
     return { kind: "token", token: params.token, mode: "replay", runOn: null };
@@ -399,11 +403,23 @@ export function resolveInput({ params = {}, query = {}, storeInput = null, sessi
     if (plan) return plan;
     return { kind: "none", problem: problemOf(`There is no shape named ${JSON.stringify(String(query.preset))}.`) };
   }
+  if (query && query[SHAPES_QUERY] !== undefined) return { kind: "none", problem: null };
   const fromStore = labInputRecord(storeInput);
   if (fromStore) return { kind: "input", input: fromStore, from: "store", mode: "live", runOn: runPlace(fromStore) };
   const fromSession = parseSessionRecord(sessionText);
   if (fromSession) return { kind: "input", input: fromSession, from: "session", mode: "live", runOn: runPlace(fromSession) };
   return { kind: "none", problem: null };
+}
+
+// startPlanOf({ params, query, storeInput, sessionText }) is what the Lab runs for the parameters of labParams
+// (src/ui/actions.mjs): { plan, replace }, plan = resolveInput. When that plan has nothing to run and the parameters
+// carry the example of the home cell (params.example: the bare address while the home cell is the selection), plan is
+// the example's and replace its query, the address that takes the place of the bare one, as the header's entry
+// Algorithm opens it. Else replace is null.
+export function startPlanOf({ params = {}, query = {}, storeInput = null, sessionText = null } = {}) {
+  const plan = resolveInput({ params, query, storeInput, sessionText });
+  if (plan.kind !== "none" || !params || !params.example) return { plan, replace: null };
+  return { plan: resolveInput({ query: params.example }), replace: params.example };
 }
 
 // ---------- the stepper position ----------
@@ -563,8 +579,15 @@ export function progressInfo(view) {
   }
   let last = 0;
   for (let s = 0; s < view.available.length; s++) if (view.available[s]) last = s;
+  // the glue of x and the check report how far they are (stepProgress)
+  const sp = view.stepProgress;
+  if (sp && sp.step >= last && sp.total > 0) {
+    const percent = Math.min(100, Math.floor((100 * sp.done) / sp.total));
+    return { text: `${stepRef("sign", sp.step, true)}: ${STEP_PHASES[sp.phase] || sp.phase} ${percent}%, ${solved} of ${rows.length} rows solved.`, j: null, phase: sp.phase, percent, place: null, rows: rows.length };
+  }
   return { text: `${stepRef("sign", last, true)} reached, ${solved} of ${rows.length} rows solved.`, j: null, phase: null, percent: null, place: null, rows: rows.length };
 }
+const STEP_PHASES = Object.freeze({ glue: "gluing of x", check: "check of the cells" });
 
 // signProgressText(view) is the progress of a running sign construction for the status chip: { chip (the place of
 // the row being solved among the rows with sign cells, "row 20 of 39", or "running" before the rows), text (the
@@ -575,6 +598,89 @@ export function signProgressText(view) {
   const chip = p.j === null ? "running" : `row ${p.place} of ${p.rows}`;
   return { chip, text: p.text, percent: p.percent };
 }
+
+// ---------- the progress display of a running sign construction ----------
+
+// The weights of the parts of a sign run, from its own plan (the rows and their row primes, known from step 2 on),
+// in units of about a millisecond (measured in Node, only their ratios matter): before the rows a fixed PREP, each row
+// RESIDUE per residue of its first row prime (its sign tables) plus ROW_DIGITS per squared digit of d (its cofactor
+// and signs), the gluing of x GLUE and the check CHECK per squared number of rows and digit of d (x has about rows
+// times as many digits as d, and each row of the check reduces x by a number of the size of d). The running sum of the
+// glue costs most of it (RUNNING_SHARE), its step k about k times the first, so its share done is (k / n)^2.
+export const SIGN_COST = Object.freeze({ prep: 5, residue: 1.1e-4, rowDigits: 1e-7, glue: 3e-5, check: 3.2e-5, runningShare: 0.85 });
+// The parts of a row solve as [start, length] of the share of its tables: the table of q1, its sort, the scan of q2.
+const ROW_PHASES = Object.freeze({ table1: [0, 0.25], sort: [0.25, 0.6], scan: [0.85, 0.15] });
+
+// signPlanCost(rows) is the cost of a sign run by SIGN_COST for its rows [{ q1, q2 }] (one per row with sign cells, as
+// the view or a result holds them): { weights (one per row), rowsTotal, glue, check, total } (total with PREP). The
+// digits of d are those of the product of the row primes.
+export function signPlanCost(rows) {
+  const C = SIGN_COST;
+  const D = rows.reduce((s, r) => s + Math.log10(r.q1) + Math.log10(r.q2), 0);
+  const fixed = C.rowDigits * D * D;
+  const weights = rows.map((r) => C.residue * r.q1 + fixed);
+  const rowsTotal = weights.reduce((a, b) => a + b, 0);
+  const square = rows.length * rows.length * D;
+  const glue = C.glue * square;
+  const check = C.check * square;
+  return { weights, rowsTotal, glue, check, total: C.prep + rowsTotal + glue + check };
+}
+
+// signFraction(view) is the overall fraction of a running sign construction (0 .. 1), from the weights of its plan
+// (SIGN_COST) and the rows solved, the phase of the row being solved, the progress of the glue and of the check
+// (stepProgress). null before the start event, 1 after the done event. Before the row primes are known it counts the
+// steps reached within PREP. A candidate d0 that is rejected starts the rows again, so the value may go back (the
+// display keeps its largest value).
+export function signFraction(view) {
+  if (!view || !view.start) return null;
+  if (view.done) return 1;
+  const C = SIGN_COST;
+  const rows = view.rows || [];
+  const planned = rows.length > 0 && rows.every((r) => r.q1 !== null && r.q2 !== null);
+  if (!planned) {
+    let last = 0;
+    for (let s = 0; s < view.available.length; s++) if (view.available[s]) last = s;
+    return Math.min(1, last / 4) * 0.01;
+  }
+  const { weights, rowsTotal, glue, check, total } = signPlanCost(rows);
+  const sp = view.stepProgress;
+  const share = (phase) => (sp && sp.phase === phase && sp.total > 0 ? Math.min(1, sp.done / sp.total) : 0);
+  let done = C.prep;
+  if (view.glued) done += rowsTotal + glue + check * share("check");
+  else if (sp && sp.phase === "glue") done += rowsTotal + glue * C.runningShare * share("glue") ** 2;
+  else {
+    const p = view.progress;
+    rows.forEach((r, k) => {
+      if (r.r1 !== null) done += weights[k];
+      else if (p && p.j === r.j && p.total > 0) {
+        const [start, span] = ROW_PHASES[p.phase] || [0, 0];
+        done += C.residue * r.q1 * (start + span * Math.min(1, p.done / p.total));
+      }
+    });
+  }
+  return Math.max(0, Math.min(1, done / total));
+}
+
+// signRunProgress(view) is the progress of a running sign construction for the progress display: { fraction
+// (signFraction), line (one short line: the step and, while the rows are solved, the row's place, "3. One row: row 20
+// of 39", during the glue and the check the percent of the step, "4. Packing rows: 40%"), full (the sentence of
+// progressInfo, for the tooltip) }, or { fraction: null, line: "", full: null } before the start event.
+export function signRunProgress(view) {
+  const p = progressInfo(view);
+  if (!p) return { fraction: null, line: "", full: null };
+  const labels = SIGN_LABELS;
+  const sp = view.stepProgress;
+  let line;
+  if (p.j !== null) line = `${labels[ROW_STEP]}: row ${p.place} of ${p.rows}`;
+  else if (sp && sp.total > 0) line = `${labels[sp.step]}: ${Math.min(100, Math.floor((100 * sp.done) / sp.total))}%`;
+  else {
+    let last = 0;
+    for (let s = 0; s < view.available.length; s++) if (view.available[s]) last = s;
+    line = labels[last];
+  }
+  return { fraction: signFraction(view), line, full: p.text };
+}
+const SIGN_LABELS = Object.freeze(stepLabels("sign"));
 
 // ---------- error texts ----------
 
@@ -598,11 +704,7 @@ export function errorInfo(error) {
         detail: `Whatever x and d are, one cell of the shape then has both coordinates divisible by ${e.p}, and such a cell has region type 0. So no region of type +1 or -1 has this shape. Remove a cell from one of the classes modulo ${e.p}.`,
       };
     case "row_cap":
-      return {
-        code, title: "A row has too many cells of type +1 or -1", editorLink: true,
-        sentence: `Row ${e.j} has ${e.k} cells of type +1 or -1, more than ${ROW_CAP}.`,
-        detail: `Row ${e.j} is too long. Make the rows of the shape shorter.`,
-      };
+      return { code, title: ROW_TOO_LONG, editorLink: true, sentence: `Row ${e.j} has ${e.k} cells.`, detail: null };
     case "bad_input":
       return { code, title: "The input is not a valid shape", editorLink: true, sentence: msg || "The shape could not be read.", detail: null };
     case "no_d0":

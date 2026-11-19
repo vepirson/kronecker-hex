@@ -49,6 +49,8 @@ test("the speeds of play and their intervals", async () => {
 
 test("the box any genus: green or red where the one rule sends a live run (the worker), blue by size, the measured limits enforced", () => {
   const { sign, blue } = model.GENUS_LIMITS;
+  // the measured bounds of the memory of a run (the time of a run is not bounded: it shows its progress and stops)
+  assert.deepEqual({ sign, blue }, { sign: 70, blue: 1200 });
   // the limits, without the time they were measured by (no timing on the page)
   assert.equal(model.genusLimitsText(), `$S_{g}^{\\pm1}$ of region type +1 or -1 up to g = ${sign}, $S_{g}^{0}$ of region type 0 up to g = ${blue}.`);
   assert.equal(model.genusLimit(1), sign);

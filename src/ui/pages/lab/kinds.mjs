@@ -13,8 +13,9 @@
 //              subOf(view, step, key) },
 //     residues (the second table, under the first: the same fields and step, the step its lines belong to),
 //     hasTries (the kind tries candidates and residues that a replay does not show, search.mjs),
-//     extras (a module with mountExtras(toolbar, kit, opts)), errorInfo(error), progressText(view), stopped(view),
-//     presets, presetInput(plan) }
+//     extras (a module with mountExtras(toolbar, kit, opts)), errorInfo(error), progressText(view), runProgress(view)
+//     (the progress display of a running construction: { fraction, line, full }), stopped(view), presets,
+//     presetInput(plan) }
 // Where a run goes is not a field: runPlace of the construction modules decides it for every page.
 // table.lines returns [{ key, data (attributes of the table line), cells: { [column key]: { text, big, changed } } }]:
 // big (a bigint or undefined) is drawn through the big number widget when its text is long, changed marks a value of
@@ -115,6 +116,7 @@ export const SIGN = Object.freeze({
   extras: signExtras,
   errorInfo: model.errorInfo,
   progressText: model.signProgressText,
+  runProgress: model.signRunProgress,
   stopped: (view) => ({ code: "stopped", j: model.rowInProgress(view) }),
   presets: model.LAB_PRESETS,
   presetInput: model.presetInput,
@@ -146,6 +148,7 @@ export const BLUE = Object.freeze({
   extras: blueExtras,
   errorInfo: blueModel.blueErrorInfo,
   progressText: blueModel.blueProgressText,
+  runProgress: blueModel.blueRunProgress,
   stopped: blueModel.blueStopped,
   presets: model.LAB_PRESETS,
   presetInput: model.presetInput,

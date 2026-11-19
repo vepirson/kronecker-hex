@@ -56,8 +56,11 @@
   box-sizing: border-box; min-height: 36px; padding: 3px 4px 3px 10px; max-width: min(640px, calc(100% - 16px)); overflow-wrap: anywhere; z-index: 15; }
 .xp-toast-error { color: var(--fail); border-color: var(--fail); }
 .xp-toast-close[hidden] { display: none; }
-.xp-progress { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-family: var(--mono); color: var(--muted);
-  white-space: nowrap; pointer-events: none; }
+/* the progress line of the colours and the progress display of a Build (widgets/run_progress.mjs) sit above the chip at
+   the bottom right, never on it, and never wider than the page less its margins */
+.xp-progress { position: absolute; right: 8px; bottom: 52px; font-family: var(--mono); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 16px); pointer-events: none; }
+.xp-run { position: absolute; right: 8px; bottom: 52px; z-index: 6; }
 /* the opening of a long link in the background: where the toast would be, with its cancel button */
 .xp-opening { position: absolute; top: 52px; left: 8px; right: 8px; margin: 0 auto; width: fit-content; display: flex; align-items: center; gap: 6px;
   font-family: var(--mono); font-size: 13px; white-space: nowrap; max-width: calc(100% - 16px); z-index: 15; }
@@ -98,5 +101,6 @@
   .xp-chip > .xp-chip-sep { margin-left: auto; }
   .xp-bl { bottom: 52px; }
   .xp-progress { bottom: 96px; }
+  .xp-run { left: 8px; right: 8px; bottom: 96px; width: auto; max-width: none; }
   .xp-readout { max-width: calc(100vw - 40px); }
 }

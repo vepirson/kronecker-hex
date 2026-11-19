@@ -17,10 +17,12 @@
 // Look: every cell is soft (its fill mixed with the theme's soft target) and a shown region is drawn at full strength
 // with its outline. A click on a cell computes its region at once. (Two view options, "soft cells" and "region on
 // click", have their switches behind SHOW_VIEW_OPTIONS.) A complete region is shown whole, a region that is not
-// complete (infinite, or larger than the cap) by its part inside the box of the click: the cells connected to the
-// clicked cell inside the rectangle of twice the canvas width and height centred on it (computed by the region
-// worker in the same job, at most WINDOW_PART_LIMIT cells). Once the view rests after a pan or a zoom (REST_MS), the
-// part is computed again for the new window (windowBoxOf, the transition rewindow), the old outline shown meanwhile.
+// complete (infinite, or larger than the cap) by its part inside the box of the click: the cells connected inside the
+// rectangle of twice the canvas width and height centred on it to the clicked cell, to a cell its fill found or, for
+// a region certified infinite, to a cell of the lines of its region (computed by the region worker in the same job, at
+// most WINDOW_PART_LIMIT cells). Once the view rests after a pan or a zoom (REST_MS), and every MOVE_MS while it keeps
+// moving, the part is computed again for the new window by the same rule (windowBoxOf, the transition rewindow), the
+// old outline shown meanwhile.
 //
 // The chip's page bar (widgets/page_bar.mjs: edit, open in the Lab) runs the shared actions of src/ui/actions.mjs. The
 // download button saves the witness of what the chip shows. The address bar holds the link of the view.
@@ -31,7 +33,7 @@
 // check when the address asks for them (#/explore with no query: everything as it was left).
 
 import { h, useStyles, loadJson } from "../dom.mjs";
-import { createHexView, kroneckerSource, planeOf } from "../../render/hex_canvas.mjs";
+import { createHexView, kroneckerSource, planeOf, boxTest } from "../../render/hex_canvas.mjs";
 import { region, marker } from "../../render/overlays.mjs";
 import { bigNumber, shortNumber } from "../widgets/bignum.mjs";
 import { iconButton, setIconLabel } from "../widgets/icons.mjs";
@@ -202,17 +204,21 @@ export function windowBox({ width, height, cell }) {
 // The view rests this many milliseconds after its last pan or zoom before the outlined part of a region that is not
 // complete is computed again for the new window.
 export const REST_MS = 200;
+// While the view keeps moving (a held arrow key, a long drag) the part is also computed again at most once per this
+// many milliseconds, whenever no part is being computed.
+export const MOVE_MS = 300;
 
-// windowBoxOf({ width, height, cell, at }) is the box of the outlined part of a region that is not complete for the
-// view now: the rectangle of twice the canvas width and height centred on the canvas middle (the rule of the click,
-// windowBox, for the window of now), grown just enough to hold the start cell (the part is the cells connected to it
-// inside the box). at: the screen place [X, Y] of the start cell in canvas pixels. Returns { cell, halfWidth,
-// halfHeight, cx, cy } relative to the start cell (see boxTest of src/render/hex_canvas.mjs), whole pixels.
-export function windowBoxOf({ width, height, cell, at }) {
+// windowBoxOf({ width, height, cell, at, grow }) is the box of the outlined part of a region that is not complete for
+// the view now: the rectangle of twice the canvas width and height centred on the canvas middle (the rule of the click,
+// windowBox, for the window of now), with grow (default) grown just enough to hold the start cell (the part is then
+// joined to it inside the box), without grow as it is (a region certified infinite: its lines give start cells in the
+// box). at: the screen place [X, Y] of the start cell in canvas pixels. Returns { cell, halfWidth, halfHeight, cx, cy }
+// relative to the start cell (see boxTest of src/render/hex_canvas.mjs), whole pixels.
+export function windowBoxOf({ width, height, cell, at, grow = true }) {
   const w = windowBox({ width, height, cell });
   const span = (c, half) => {
-    const lo = Math.min(c - half, 0);
-    const hi = Math.max(c + half, 0);
+    const lo = grow ? Math.min(c - half, 0) : c - half;
+    const hi = grow ? Math.max(c + half, 0) : c + half;
     return [Math.round((lo + hi) / 2), Math.max(1, Math.ceil((hi - lo) / 2) + 1)];
   };
   const [cx, halfWidth] = span(width / 2 - at[0], w.halfWidth);
@@ -283,6 +289,15 @@ function setData(el, data) {
 }
 function setText(el, text) {
   if (el.textContent !== text) el.textContent = text;
+}
+
+// seedsInBox(flat, box) is the Int32Array [i0, j0, ...] of the cells of flat (the same form) that lie in the box of
+// boxTest.
+export function seedsInBox(flat, box) {
+  const inside = boxTest(box);
+  const out = [];
+  for (let k = 0; k + 1 < flat.length; k += 2) if (inside(flat[k], flat[k + 1])) out.push(flat[k], flat[k + 1]);
+  return Int32Array.from(out);
 }
 
 // workerSlot(start) keeps one worker in step with one kind of job of the state: sync(job) ends the worker of another
@@ -697,18 +712,24 @@ export function mount(root, ctx) {
   }
 
   // ---------- the workers, each in step with its job of the record ----------
+  // the cells found by the fill of the shown region when it is not complete ({ x, d, flat }: its start cell and the
+  // Int32Array of the fill, at most FILL_CAP cells, kept here and not in the record that every transition copies)
+  let known = null;
   const syncFill = workerSlot((job) => {
     const t0 = performance.now();
     // the window at the moment of the click: a region that is not complete is outlined inside twice this window
     const box = windowBox({ width: canvas.clientWidth, height: canvas.clientHeight, cell: view.getView().cell });
     const failed = (text) => act(model.fillFailed, job.id) && say(text, "error");
+    known = null;
     const w = makeWorker();
     w.onmessage = (e) => {
       const m = e.data;
       if (m.type === "progress") act(model.fillProgress, job.id, m);
       else if (m.type === "filled") {
-        // a complete region is outlined whole, any other by its part inside the box of the click
+        // a complete region is outlined whole, any other by its part inside the box of the click; the cells its fill
+        // found stay known to the page for the parts of later boxes
         const part = m.result.complete ? null : { count: m.window.count, cut: m.window.cut, limit: m.window.limit, box };
+        known = part ? { x: job.x, d: job.d, flat: m.flat } : null;
         act(model.fillDone, job.id, m.result, cellsOfFlat(part ? m.window.flat : m.flat), part, performance.now() - t0);
       } else if (m.type === "error") failed(`flood fill failed: ${m.message}`);
     };
@@ -738,24 +759,39 @@ export function mount(root, ctx) {
       else act(model.windowFailed, job.id);
     };
     w.onerror = (e) => (e.preventDefault(), act(model.windowFailed, job.id));
-    w.postMessage({ type: "window", id: job.id, x: job.x.toString(), d: job.d.toString(), box: job.box });
+    const r = model.get().region;
+    const line = r.res && r.res.infinite ? r.res.infinite.id : null;
+    const seeds = known && known.x === job.x && known.d === job.d ? seedsInBox(known.flat, job.box) : new Int32Array(0);
+    w.postMessage({ type: "window", id: job.id, x: job.x.toString(), d: job.d.toString(), box: job.box, line, seeds }, [seeds.buffer]);
     return () => w.terminate();
   });
-  // rewindowAtRest(): the box of the view now around the start cell of the shown part (windowBoxOf), REST_MS after the
-  // last pan or zoom
+  // rewindowAtRest(): the box of the view now (windowBoxOf: around the start cell of the shown part, except for a region
+  // certified infinite, whose lines give start cells in every box), REST_MS after the last pan or zoom, and while the
+  // view keeps moving at most every MOVE_MS when no part is being computed, so that the outline follows a long pan
   let restTimer = 0;
+  let lastRewindow = -Infinity;
+  let moveStart = 0; // when the present movement of the view began (its first change after a rest)
+  function rewindowNow() {
+    const now = model.get().region;
+    const off = now.part ? offsetOf(now.x, now.d) : null;
+    if (!off) return;
+    lastRewindow = performance.now();
+    const at = view.toScreen(off[0], off[1]);
+    const grow = !(now.res && now.res.infinite);
+    act(model.rewindow, windowBoxOf({ width: canvas.clientWidth, height: canvas.clientHeight, cell: view.getView().cell, at, grow }));
+  }
   function rewindowAtRest() {
+    const t = performance.now();
+    if (!restTimer) moveStart = t;
     if (restTimer) clearTimeout(restTimer);
     restTimer = 0;
     const r = model.get().region;
     if (destroyed || !r.part) return;
+    // a movement that has lasted MOVE_MS: the part again now (and at most every MOVE_MS), a short one waits for the rest
+    if (!model.get().windowJob && t - moveStart >= MOVE_MS && t - lastRewindow >= MOVE_MS) rewindowNow();
     restTimer = setTimeout(() => {
       restTimer = 0;
-      const now = model.get().region;
-      const off = now.part ? offsetOf(now.x, now.d) : null;
-      if (!off) return;
-      const at = view.toScreen(off[0], off[1]);
-      act(model.rewindow, windowBoxOf({ width: canvas.clientWidth, height: canvas.clientHeight, cell: view.getView().cell, at }));
+      rewindowNow();
     }, REST_MS);
   }
   // a long link opens in the construct worker (openTokenInWorker of the one construction runner, loaded only for such

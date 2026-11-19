@@ -63,7 +63,8 @@ test("the colour check and the box any genus: the start panel's sentence typeset
     }
   }
   assert.equal(checkMathText(model.genusLimitsText(), "limits"), 2);
-  for (const [g, colour] of [[26, "green"], [9999, "red"], [211, "blue"]]) {
+  // the first genus above each limit of the box (GENUS_LIMITS 70 and 1200), and one far above
+  for (const [g, colour] of [[71, "green"], [9999, "red"], [1201, "blue"]]) {
     const plan = model.resolveGenus(String(g), colour);
     assert.ok(plan.blocked, `${g} ${colour}`);
     checkPlain(plan.name, "name");

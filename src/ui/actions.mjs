@@ -7,7 +7,8 @@
 //
 // The selection (store key selection): the region selected last, { shape, seed, colour, token, home, stamp }, a
 // complete region of the Explorer (found by a click, or opened from a link, a token, a name or a file) or the region of
-// a Gallery card whose pencil or flask was used. home tells whether its seed cell is the home cell (isHomeCell). stamp
+// a Gallery card whose pencil or flask was used. Every visit starts with the home cell's region as the selection
+// (appState of router.mjs), as the Explorer's default state selects it. home tells whether its seed cell is the home cell (isHomeCell). stamp
 // grows by one with every new selection. Clearing the selection in the Explorer keeps it. The editor's drawing and the
 // Lab's input carry the stamp of the selection they came from (editor.stamp, lab.stamp), and the Edit page and the Lab
 // take the selection when it is newer (isNewer).
@@ -18,28 +19,17 @@
 
 import { labInputOf } from "./editor/editor_state.mjs";
 import { buildHash } from "./router.mjs";
-import { EXPLORE_PATH, EDIT_PATH, LAB_PATH, LAB_ALIAS, HOME_VIEW } from "./routes.mjs";
-import { GENUS_LIMITS } from "./pages/lab/model.mjs";
-import { shapeS, shapeZ } from "../core/shapes.mjs";
+import { EXPLORE_PATH, EDIT_PATH, LAB_PATH, LAB_ALIAS, HOME_VIEW, SHAPES_QUERY } from "./routes.mjs";
+import { shapeProblem } from "../construct/row_limit.mjs";
 import { compareCells } from "../core/geometry.mjs";
 import { tokenInText } from "../formats/token.mjs";
 
-// The reason of a Lab action that is not offered because the shape is above the size of a live run.
-export const TOO_LARGE_FOR_LIVE = "Too large for a live run";
+// The one rule that refuses a shape before a run (src/construct/row_limit.mjs): a row of the shape longer than the
+// row limit, reason ROW_TOO_LONG.
+export { ROW_TOO_LONG, longestRow, shapeProblem } from "../construct/row_limit.mjs";
 // The reason of the edit and Lab actions of a region found in the grid whose flood fill did not end complete
 // (infinite, larger than the cap, stopped or failed), when the subject gives no reason of its own.
 export const NOT_COMPLETE = "Region not complete";
-
-let liveCells = null;
-
-// liveRunProblem(cells, colour) is null when the Lab accepts the shape for a live run, else TOO_LARGE_FOR_LIVE: a live
-// run is accepted for a shape with at most as many cells as the largest shape of its kind that the Lab's box "any
-// genus" builds (GENUS_LIMITS of the Lab: S_g^{+-1} for green and red, S_g^{0} for blue).
-export function liveRunProblem(cells, colour) {
-  if (!liveCells) liveCells = { sign: shapeS(GENUS_LIMITS.sign).length, blue: shapeZ(GENUS_LIMITS.blue).length };
-  const n = Array.isArray(cells) ? cells.length : 0;
-  return n <= (colour === 0 ? liveCells.blue : liveCells.sign) ? null : TOO_LARGE_FOR_LIVE;
-}
 
 // explorerHref(query) is the Explorer's address of a view or of a shipped witness: "#/explore" with the query (x, d,
 // z, sel, or w with z and at), the bare "#/explore" for null.
@@ -108,8 +98,8 @@ export function tokenInLink(text) {
 //   edit  { cells, seed, colour }: a complete region or any witness with cells.
 //   lab   { example: HOME_CELL_EXAMPLE } when the seed cell is the home cell (isHomeCell, before every other test),
 //         { token } for a witness with a token (the Lab replays it), { cells, seed, colour } for a witness without
-//         token or a complete region of the grid when liveRunProblem accepts its shape (the Lab builds it live), else
-//         null (labWhy says why for a shape that is too large).
+//         token or a complete region of the grid when shapeProblem accepts its shape (the Lab builds it live), else
+//         null (labWhy says why: ROW_TOO_LONG).
 //   A region of the grid that is not complete offers neither, both with the reason why (else NOT_COMPLETE), except the
 //   Lab's example of the home cell.
 export function regionActions(subject) {
@@ -124,7 +114,7 @@ function shapeActions(subject) {
   const shape = { cells: s.cells, seed: Array.isArray(s.seed) ? s.seed : null, colour: [1, -1, 0].includes(s.colour) ? s.colour : 1 };
   const none = { edit: null, lab: null, labWhy: null, editWhy: null };
   const live = () => {
-    const why = liveRunProblem(s.cells, shape.colour);
+    const why = shapeProblem(s.cells, shape.colour);
     return { edit: shape, lab: why ? null : shape, labWhy: why, editWhy: null };
   };
   if (s.kind === "witness") {
@@ -178,19 +168,26 @@ export function selectRegion(store, subject) {
 }
 
 // selectionLab(selection) is the Lab action of the selection: the one the Explorer's chip or the Gallery's card that
-// selected it offers (regionActions), null when the shape is too large for a live run.
+// selected it offers (regionActions), null when shapeProblem refuses the shape.
 function selectionLab(sel) {
   return regionActions({ kind: "witness", complete: true, cells: sel.shape, seed: sel.seed, colour: sel.colour, token: sel.token, home: sel.home === true }).lab;
 }
 
-// takeForLab(store) is the Lab action of the selection: the example of the home cell whenever the selection is it
-// (the Lab's input is left as it is), else, when the selection is newer than the Lab's input and the Lab can run it,
-// the selection becomes that input: a shape becomes lab.input (labInputOf), a token clears it (the token is
-// replayed), and lab.stamp becomes the selection's. Returns the Lab action ({ example }, { token } or the shape), or
-// null.
+// ownInput(store) is true when the Lab has an input of its own that came after the selection was made: lab.input
+// with the selection's stamp (a drawing sent by the editor's flask, or built by its eye, while that selection stood).
+function ownInput(store) {
+  const { selection: sel, lab } = store.get();
+  return !!sel && !!lab && !!lab.input && lab.stamp === sel.stamp;
+}
+
+// takeForLab(store) is the Lab action of the selection: while the selection is the home cell, the example of the home
+// cell, unless the Lab has an input of its own since that selection (ownInput: then null, the Lab runs that input),
+// the Lab's input left as it is. Else, when the selection is newer than the Lab's input and the Lab can run it, the
+// selection becomes that input: a shape becomes lab.input (labInputOf), a token clears it (the token is replayed),
+// and lab.stamp becomes the selection's. Returns the Lab action ({ example }, { token } or the shape), or null.
 function takeForLab(store) {
   const { selection: sel, lab } = store.get();
-  if (sel && sel.home === true) return selectionLab(sel);
+  if (sel && sel.home === true) return ownInput(store) ? null : selectionLab(sel);
   if (!isNewer(sel, lab && lab.stamp)) return null;
   const act = selectionLab(sel);
   if (!act) return null;
@@ -221,11 +218,14 @@ export function openInLab({ store, navigate }, subject = null) {
 }
 
 // labParams(store, params, query) is the route parameters the Lab reads its input from. An address with a token, a
-// genus or a preset keeps its own. Else a newer selection is taken first (takeForLab), and the selection's token is
-// the input while no shape has come since it was taken ({ token }).
+// genus, a preset or the list of shapes (SHAPES_QUERY) keeps its own and takes nothing. Else a newer selection is
+// taken first (takeForLab): the example of the home cell is { example } (the Lab shows it when nothing else gives an
+// input, startPlanOf of pages/lab/model.mjs), and the selection's token is the input while no shape has come since it
+// was taken ({ token }).
 export function labParams(store, params = {}, query = {}) {
-  if (params.token || query.genus !== undefined || query.preset !== undefined) return params;
-  takeForLab(store);
+  if (params.token || query.genus !== undefined || query.preset !== undefined || query[SHAPES_QUERY] !== undefined) return params;
+  const act = takeForLab(store);
+  if (act && act.example) return { example: act.example };
   const { selection: sel, lab } = store.get();
   return sel && sel.token && lab && lab.stamp === sel.stamp && !lab.input ? { token: sel.token } : params;
 }

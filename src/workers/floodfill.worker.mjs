@@ -7,8 +7,9 @@
 //       flood fill with infinite: null), box (default none) = { cell, halfWidth, halfHeight, cx, cy }: a screen
 //       rectangle around the start cell (pixels per cell, half width and half height in pixels, the offset of its
 //       centre from the start cell, see boxTest of src/render/hex_canvas.mjs), only with certify
-//   { type: "window", id, x, d, box }             the part of the region of (x, d) inside a box again (for a region
-//       that is not complete, when the view of its outlined part came to rest elsewhere)
+//   { type: "window", id, x, d, box, line, seeds } the part of the region of (x, d) inside a box again (for a region
+//       that is not complete, when the view of its outlined part moved), from (x, d), the known cells seeds and the
+//       lines of its region when it is certified infinite by the line of the certificate id `line` (windowRegion)
 //   { type: "verify", id, witness }               a parsed witness object (kron_hex_witness_v1)
 // Messages out:
 //   { type: "progress", id, cells, symbols, rows, ms, phase }   at most one per PROGRESS_MS during a fill, phase
@@ -19,7 +20,8 @@
 //                                                               { id, text, reason, cell, steps, search, visited }),
 //                                                               flat = Int32Array [i0, j0, i1, j1, ...] (sorted by (j, i))
 //       with a box and a region that is not complete, also window = { flat, count, cut, limit }: the cells of the
-//       region connected to the start cell inside the box (an Int32Array as flat, sorted by (j, i)), at most
+//       region connected inside the box to the start cell, to a cell of the fill or, for a region certified
+//       infinite, to a cell of the lines of its region (an Int32Array as flat, sorted by (j, i)), at most
 //       WINDOW_PART_LIMIT of them, the first ones in breadth-first order when cut is true
 //   { type: "windowed", id, window, ms }                         window = { flat, count, cut, limit } as above, by the
 //                                                               same breadth-first loop inside the box
@@ -33,10 +35,10 @@
 
 import { floodFillIter, cellColours, breadthFirst } from "../core/regions.mjs";
 import { compareCells } from "../core/geometry.mjs";
-import { floodFillCertified } from "../core/infinite.mjs";
+import { floodFillCertified, lineCellsInRows, regionLines } from "../core/infinite.mjs";
 import { parseBigIntStrict, CodedError } from "../core/bigint_utils.mjs";
 import { verifyWitness } from "../formats/witness.mjs";
-import { boxTest } from "../render/hex_canvas.mjs";
+import { boxTest, boxRows } from "../render/hex_canvas.mjs";
 
 // Minimum time between two progress messages of a fill, in milliseconds.
 export const PROGRESS_MS = 100;
@@ -60,7 +62,7 @@ export function fillRegion({ id = null, x, d, cap = FILL_CAP, yieldEvery = YIELD
   if (bx === null || bd === null) throw new CodedError("bad_integer", "x and d must be decimal integer strings");
   if (!Number.isInteger(cap) || cap < 1) throw new CodedError("bad_cap", "the cap is a positive integer");
   if (box !== null && certify === false) throw new CodedError("bad_box", "a box is taken only by the certified fill");
-  const windowPart = box === null ? null : { inside: boxTest(box || {}), limit: WINDOW_PART_LIMIT };
+  const windowPart = box === null ? null : { inside: boxTest(box || {}), limit: WINDOW_PART_LIMIT, rows: boxRows(box || {}) };
   const t0 = now();
   let last = t0;
   const every = Math.max(1, yieldEvery | 0);
@@ -92,18 +94,23 @@ export function fillRegion({ id = null, x, d, cap = FILL_CAP, yieldEvery = YIELD
   return msg;
 }
 
-// windowRegion({ id, x, d, box }, post) computes the part of the region of the cell (x, d) (decimal strings) inside
-// the box: the cells connected to (x, d) inside it in breadth-first order, at most WINDOW_PART_LIMIT (the rule of the
-// part of a fill, step 4 of floodFillCertified), and posts one "windowed" message. Throws CodedError "bad_integer" or
-// "bad_box" on bad input.
-export function windowRegion({ id = null, x, d, box } = {}, post) {
+// windowRegion({ id, x, d, box, line, seeds }, post) computes the part of the region of the cell (x, d) (decimal
+// strings) inside the box: the cells connected inside it to a start cell, in breadth-first order, at most
+// WINDOW_PART_LIMIT (the rule of the part of a fill, step 4 of floodFillCertified), and posts one "windowed" message.
+// The start cells: (x, d), the cells of seeds (an Int32Array [i0, j0, ...] of cells of the region known to the page,
+// offsets from (x, d)) and, for a region certified infinite by a path to the line of the certificate `line` (its id),
+// every cell of the lines of that region in the box (regionLines of src/core/infinite.mjs). Throws CodedError
+// "bad_integer" or "bad_box" on bad input.
+export function windowRegion({ id = null, x, d, box, line = null, seeds = null } = {}, post) {
   const bx = parseBigIntStrict(typeof x === "string" ? x : "");
   const bd = parseBigIntStrict(typeof d === "string" ? d : "");
   if (bx === null || bd === null) throw new CodedError("bad_integer", "x and d must be decimal integer strings");
   const inside = boxTest(box || {});
   const t0 = now();
   const src = cellColours(bx, bd);
-  const it = breadthFirst(src, src.at(0, 0), { cap: WINDOW_PART_LIMIT, inside });
+  const starts = line ? lineCellsInRows(regionLines(line), bx, bd, boxRows(box)) : [];
+  if (seeds) for (let k = 0; k + 1 < seeds.length; k += 2) starts.push([seeds[k], seeds[k + 1]]);
+  const it = breadthFirst(src, src.at(0, 0), { cap: WINDOW_PART_LIMIT, inside, starts });
   let r = it.next();
   while (!r.done) r = it.next();
   const cells = r.value.cells.sort(compareCells);

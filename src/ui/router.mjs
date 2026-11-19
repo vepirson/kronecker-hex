@@ -13,7 +13,7 @@
 // while the mark is not "pointer". A mouse user then never meets a ring after a click followed by Escape or an arrow
 // key, a keyboard user always sees where the focus is.
 
-import { ROUTES, layoutOf, pageTitle, EXPLORE_PATH, EDIT_PATH, LAB_PATH, LAB_ALIAS, homeQuery } from "./routes.mjs";
+import { ROUTES, layoutOf, pageTitle, EXPLORE_PATH, EDIT_PATH, LAB_PATH, LAB_ALIAS, homeQuery, HOME_REGION } from "./routes.mjs";
 import { createStore, defaultState } from "./store.mjs";
 import { h } from "./dom.mjs";
 import { icon, setIconLabel, PAGE_ICONS } from "./widgets/icons.mjs";
@@ -244,10 +244,29 @@ export function inputKindOf(e) {
   return null;
 }
 
+// homeHref() is the Explorer's address of the home view with the home cell selected (the view of its default state).
+export function homeHref() {
+  return buildHash(EXPLORE_PATH, { ...homeQuery(), sel: "0,0" });
+}
+
+// appState() is the first state of the site: defaultState of the store with the home cell as the selection (the
+// record the Explorer's default state makes for it: HOME_REGION, home true, stamp 1, so that the Explorer finds it
+// the same and keeps it) and, for the editor, the home view as the Explorer address that region came from (so that
+// the eye on the unchanged home cell opens the Explorer there). A visit that starts on any page has the selection
+// that a visit of the Explorer gives.
+export function appState() {
+  const st = defaultState();
+  const shape = HOME_REGION.shape.map(([i, j]) => [i, j]);
+  const seed = [HOME_REGION.seed[0], HOME_REGION.seed[1]];
+  st.selection = { shape, seed, colour: HOME_REGION.colour, token: null, home: true, stamp: 1 };
+  st.editor = { ...st.editor, origin: { href: homeHref(), cells: shape.map(([i, j]) => [i, j]), colour: HOME_REGION.colour, stamp: 1 } };
+  return st;
+}
+
 // startApp({ root, routes, store }) starts the site: preferences, header switches, the focus rule, and the router on
 // the <main> element. Returns { store, stop() }.
 export function startApp({ root = document.getElementById("main"), routes = ROUTES, store = null } = {}) {
-  const st = store || createStore(defaultState());
+  const st = store || createStore(appState());
   st.set({ prefs: readPrefs() });
   applyPrefs(st.get().prefs);
 

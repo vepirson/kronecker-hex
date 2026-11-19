@@ -6,13 +6,14 @@ const blankRowState = () => ({
 });
 
 // buildLabView(events) returns { start, window, smallPrimes, xSmall, rowPrimes, dSteps, candidates, rows, progress,
-// xSteps, glued, verifyRows, verifyRegion, done, error, available }. rows hold, per row with sign cells, its cells,
-// its row primes and the data of the LATEST candidate d0 (n, u, c, the attempts with their R, the target of the
-// last attempt, r1, r2). available[n] says whether step n has at least one event.
+// stepProgress, xSteps, glued, verifyRows, verifyRegion, done, error, available }. rows hold, per row with sign cells,
+// its cells, its row primes and the data of the LATEST candidate d0 (n, u, c, the attempts with their R, the target of
+// the last attempt, r1, r2). stepProgress is the latest stepProgress event { step, phase ("glue" or "check"), done,
+// total }. available[n] says whether step n has at least one event other than a stepProgress event.
 export function buildLabView(events) {
   const view = {
     start: null, window: null, smallPrimes: [], xSmall: null, rowPrimes: [], dSteps: [], candidates: [], rows: [],
-    progress: null, xSteps: [], glued: null, verifyRows: [], verifyRegion: null, done: null, error: null,
+    progress: null, stepProgress: null, xSteps: [], glued: null, verifyRows: [], verifyRegion: null, done: null, error: null,
     available: new Array(8).fill(false),
   };
   const rowByJ = new Map();
@@ -26,6 +27,10 @@ export function buildLabView(events) {
     return r;
   };
   for (const ev of events) {
+    if (ev.type === "stepProgress") {
+      view.stepProgress = { step: ev.step, phase: ev.phase, done: ev.done, total: ev.total };
+      continue;
+    }
     if (Number.isInteger(ev.step) && ev.step >= 0 && ev.step < 8) view.available[ev.step] = true;
     switch (ev.type) {
       case "start": view.start = ev; break;

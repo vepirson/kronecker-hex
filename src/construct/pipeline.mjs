@@ -29,12 +29,13 @@ import { chooseRowPrimes, rowPrimeBound, checkStoredRowPrimes, dConditions } fro
 import { firstCandidateIndex, failsSquareTest, cofactorOf, smallSigns, isValidR, nextValidR, rowTarget } from "./cofactor.mjs";
 import { solveRowIter } from "./row_solver.mjs";
 import { jacobiNumber } from "../core/kronecker.mjs";
-import { runningCrt, glueX } from "./glue.mjs";
-import { verifyConstruction } from "./verify.mjs";
+import { runningCrt, glueXIter } from "./glue.mjs";
+import { verifyConstructionIter } from "./verify.mjs";
 import { collectEvents, postInBatches, withoutFields, eventToJSON } from "./events.mjs";
+import { CAP_K, overRow } from "./row_limit.mjs";
 
-// The largest number of sign cells allowed in one row.
-export const CAP_K = 40;
+// The largest number of sign cells allowed in one row (row_limit.mjs).
+export { CAP_K };
 // The version of the algorithm (any change of a rule or a tie-break gets a new version).
 export const VERSION = "construct_v1";
 // Number of further integers examined for the next valid R, and number of attempts per row.
@@ -44,6 +45,24 @@ export const MAX_ATTEMPTS = 20;
 const now = () => globalThis.performance.now();
 
 const errorEvent = (step, code, message, extra = {}) => ({ type: "error", step, code, message, ...extra });
+
+// The progress of the gluing of x0 and of the check is reported at most once per this many milliseconds.
+const STEP_PROGRESS_MS = 100;
+
+// stepProgressOf(it, step, phase) drives the generator `it` (records { done, total }) and turns its records into
+// stepProgress events { type: "stepProgress", step, phase, done, total }, at most one per STEP_PROGRESS_MS (the first
+// at once). Returns the return value of `it`.
+function* stepProgressOf(it, step, phase) {
+  let last = -Infinity;
+  for (;;) {
+    const r = it.next();
+    if (r.done) return r.value;
+    const t = now();
+    if (t - last < STEP_PROGRESS_MS) continue;
+    last = t;
+    yield { type: "stepProgress", step, phase, done: r.value.done, total: r.value.total };
+  }
+}
 
 // Tag the progress records of a row solver with the row and turn them into rowProgress events.
 function* rowProgressOf(j, it) {
@@ -204,7 +223,7 @@ export function* construct(input, hooks = {}) {
   // step 2
   const sr = signRows(win, forced.keys);
   yield { type: "xSmall", step: 2, Xs, Mx, forcedCount: forced.cells.length, rows: sr.rows, emptyRows: sr.emptyRows, kMax: sr.kMax };
-  const over = sr.rows.find((r) => r.cells.length > CAP_K);
+  const over = overRow(sr.rows);
   if (over) {
     yield errorEvent(2, "row_cap", `row ${over.j} has ${over.cells.length} sign cells, more than ${CAP_K}`, { j: over.j, k: over.cells.length });
     return null;
@@ -301,7 +320,7 @@ export function* construct(input, hooks = {}) {
   // step 6
   let glue;
   try {
-    glue = glueX(Xs, Mx, rows);
+    glue = yield* stepProgressOf(glueXIter(Xs, Mx, rows), 6, "glue");
   } catch (e) {
     if (replay && e instanceof CodedError) {
       yield errorEvent(6, "replay_mismatch", "the moduli of the x0 congruences are not coprime");
@@ -317,7 +336,7 @@ export function* construct(input, hooks = {}) {
   yield { type: "glued", step: 6, x0, d0, dIndex, digitsX: digits.x0, digitsD: digits.d0, sha256x: sha256.x0, sha256d: sha256.d0 };
 
   // step 7
-  const ver = verifyConstruction({ x0, d0, shape: win.S, seed, colour, forced: forced.cells });
+  const ver = yield* stepProgressOf(verifyConstructionIter({ x0, d0, shape: win.S, seed, colour, forced: forced.cells }), 7, "check");
   for (const r of ver.rows) yield { type: "verifyRow", step: 7, ...r };
   yield { type: "verifyRegion", step: 7, ...ver.region };
 
@@ -363,8 +382,9 @@ export function runToEnd(input, hooks) {
 const DROP_FIELDS = new Set(["ms", "tried2", "mode", "byRule"]);
 
 // canonicalEvents(events) returns the event list without what depends on timing or on the way the choices were
-// found: rowProgress, rowRetry, every event from a rejected dCandidate up to its dRejected, every rowTarget but the
-// last of each row, and the fields ms, tried2, mode, byRule. Live and replay of the same result give equal lists.
+// found: rowProgress, stepProgress, rowRetry, every event from a rejected dCandidate up to its dRejected, every
+// rowTarget but the last of each row, and the fields ms, tried2, mode, byRule. Live and replay of the same result give
+// equal lists.
 export function canonicalEvents(events) {
   const keep = new Array(events.length).fill(true);
   for (let k = 0; k < events.length; k++) {
@@ -379,7 +399,7 @@ export function canonicalEvents(events) {
   });
   const out = [];
   events.forEach((ev, k) => {
-    if (!keep[k] || ev.type === "rowProgress" || ev.type === "rowRetry") return;
+    if (!keep[k] || ev.type === "rowProgress" || ev.type === "stepProgress" || ev.type === "rowRetry") return;
     if (ev.type === "rowTarget" && lastTarget.get(ev.j) !== k) return;
     out.push(withoutFields(ev, DROP_FIELDS));
   });

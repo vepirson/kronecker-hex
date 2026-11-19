@@ -10,7 +10,6 @@ import { shapeRowsToText, shapeRowsFromText, openToken, decodeToken } from "../.
 import { shapeQuery, readShapeQuery, SHAPE_ADDRESS_LIMIT, ADDRESS_COLOUR_SENTENCE, ADDRESS_SHAPE_SENTENCE } from "../../src/ui/editor/shape_address.mjs";
 import { startOf, sameShape, ADDRESS_MS } from "../../src/ui/pages/edit.mjs";
 import { startBuild } from "../../src/ui/editor/build.mjs";
-import { buildText } from "../../src/ui/editor/editor.mjs";
 import { labInputOf } from "../../src/ui/editor/editor_state.mjs";
 import { buildHash, parseHash } from "../../src/ui/router.mjs";
 import { shapeS, shapeZ, seedZ } from "../../src/core/shapes.mjs";
@@ -168,6 +167,4 @@ test("Build failures carry the Lab's error texts: a blue shape whose neighbours 
   b.cancel();
   await new Promise((r) => setTimeout(r, 50));
   assert.equal(called, false);
-  assert.equal(buildText(null), "packing ...");
-  assert.equal(buildText({ text: "Step 5: row 3" }), "packing: Step 5: row 3");
 });

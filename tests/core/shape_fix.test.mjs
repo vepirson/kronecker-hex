@@ -10,6 +10,9 @@ import { isAdmissible, residueTest } from "../../src/core/admissible.mjs";
 import { isConnected } from "../../src/core/regions.mjs";
 import { shapeS, shapeZ, hexDisc } from "../../src/core/shapes.mjs";
 import { fixShape, largestPiece } from "../../src/core/shape_fix.mjs";
+import { CAP_K, ROW_LIMIT, ROW_TOO_LONG, longestRow, shapeProblem } from "../../src/construct/row_limit.mjs";
+import { runToEnd } from "../../src/construct/pipeline.mjs";
+import { errorInfo } from "../../src/ui/pages/lab/model.mjs";
 
 // A small seeded generator of floats in [0, 1).
 const rng = (seed) => {
@@ -195,6 +198,102 @@ test("shapes that can be built give null, other inputs", () => {
   assert.throws(() => fixShape([[0, 0.5]], 1), (e) => e instanceof CodedError && e.code === "bad_format");
   // largestPiece keeps the first of two pieces of equal size
   assert.deepEqual(largestPiece([[0, 0], [5, 0], [0, 1], [5, 1]]), [[0, 0], [0, 1]]);
+});
+
+// The fix of a row over the limit: the checks of every fix, and for types +1 and -1 no row of more than ROW_LIMIT cells
+// (the rule before a run); only removals; never exact.
+const checkWhole = (cells, colour, fix) => {
+  const out = checkFix(cells, colour, fix);
+  if (colour !== 0) {
+    assert.ok(longestRow(out).n <= ROW_LIMIT, `a row of ${longestRow(out).n} cells`);
+    assert.deepEqual(fix.add, [], "nothing is added to a shape of type +1 or -1");
+  }
+  assert.equal(fix.exact, false);
+  assert.equal(fix.cutOff, 0);
+  return out;
+};
+const strip = (n) => Array.from({ length: n }, (_, i) => [i, 0]);
+
+test("a shape that is not connected gets no fix, in every type, also with a row over the limit", () => {
+  const cases = [
+    [[0, 0], [2, 0]],
+    [[0, 0], [3, 0], [0, 4], [1, 4]],
+    [...RHOMBUS, ...RHOMBUS.map(([i, j]) => [i + 4, j])],
+    [...strip(60), [0, 5]],
+  ];
+  for (const cells of cases) {
+    for (const colour of [1, -1, 0]) assert.deepEqual(fixShape(cells, colour), { none: true, reason: "not_connected" }, `${cells.length} cells in ${colour}`);
+  }
+});
+
+test("a row over the limit in type +1 or -1: cut to the limit of the drawn cells", () => {
+  // a strip of 60 cells: 45 are kept, the leftmost
+  for (const colour of [1, -1]) {
+    const f = fixShape(strip(60), colour);
+    const out = checkWhole(strip(60), colour, f);
+    assert.equal(f.reason, "cut_rows");
+    assert.deepEqual(out, strip(ROW_LIMIT));
+  }
+  // a strip of 45 cells needs no fix, a strip of 46 loses its last cell
+  assert.equal(ROW_LIMIT, 45);
+  assert.equal(fixShape(strip(ROW_LIMIT), 1), null);
+  assert.deepEqual(fixShape(strip(ROW_LIMIT + 1), 1).remove, [[45, 0]]);
+  // a long row whose cut splits the shape: a part hangs at each end of the row, the larger piece is kept
+  const hang = (i0) => [0, 1, 2].flatMap((j) => [0, 1, 2].map((i) => [i0 + i + j + 1, j + 1]));
+  const split = [...strip(60), ...hang(-1), ...hang(56)];
+  assert.ok(isConnected(split));
+  const s = fixShape(split, 1);
+  const out = checkWhole(split, 1, s);
+  assert.match(s.reason, /^cut_rows/);
+  assert.deepEqual(s.add, []);
+  assert.ok(out.length < split.length);
+  // type 0 has no row solve: a long row needs no cut (61 cells: the neighbours miss a class modulo 2)
+  assert.equal(fixShape(strip(61), 0), null);
+});
+
+test("the row limits: 45 drawn cells before a run, 47 sign cells in the run, exact for a plain row", () => {
+  assert.equal(CAP_K, ROW_LIMIT + 2);
+  // the run stops after its rows are counted: a row solver that finds nothing (no table of 2 GB in a test)
+  const hooks = { solveRowIter: function* () { return null; } };
+  const runEnd = (cells, colour) => {
+    const { events } = runToEnd({ shape: cells, seed: cells[0], colour, maxD0: 1 }, hooks);
+    return events[events.length - 1];
+  };
+  // plain strips: up to 45 cells accepted and their run passes the rows, from 46 cells refused before the run
+  for (const colour of [1, -1]) {
+    for (let n = 40; n <= ROW_LIMIT; n++) {
+      assert.equal(shapeProblem(strip(n), colour), null, `strip of ${n}`);
+      assert.notEqual(runEnd(strip(n), colour).code, "row_cap", `strip of ${n} in ${colour}`);
+    }
+    for (let n = ROW_LIMIT + 1; n <= 50; n++) assert.equal(shapeProblem(strip(n), colour), ROW_TOO_LONG, `strip of ${n}`);
+  }
+  // known and accepted: a row beside a longer one can have more than 2 neighbour cells with a sign. A strip of 45 with
+  // a hook above its right end that reaches past it passes the rule, and its run stops at row 0 with 49 sign cells.
+  const hook = [...strip(ROW_LIMIT), [45, 1], [46, 2], [47, 2], [47, 1]];
+  assert.ok(isConnected(hook));
+  assert.equal(shapeProblem(hook, 1), null);
+  const e = runEnd(hook, 1);
+  assert.deepEqual([e.code, e.j, e.k], ["row_cap", 0, 49]);
+  assert.equal(`${errorInfo(e).title}. ${errorInfo(e).sentence}`, "Row limit 45 cells. Row 0 has 49 cells.");
+});
+
+test("the fix of a long row is the same for the same cells in any order, and only removes", () => {
+  const rand = rng(2024);
+  for (let t = 0; t < 20; t++) {
+    // a random shape with a row of 50 to 69 cells through its first cell
+    const a = randomShape(4 + Math.floor(rand() * 20), rand);
+    const [i0, j0] = a[0];
+    const keys = new Set(a.map(([i, j]) => cellKey(i, j)));
+    const row = Array.from({ length: 50 + Math.floor(rand() * 20) }, (_, k) => [i0 + k, j0]).filter(([i, j]) => !keys.has(cellKey(i, j)));
+    const cells = a.concat(row).sort(compareCells);
+    const shuffled = cells.slice().reverse();
+    for (const colour of [1, -1]) {
+      const f = fixShape(cells, colour);
+      assert.deepEqual(fixShape(shuffled, colour), f);
+      checkWhole(cells, colour, f);
+      assert.match(f.reason, /^cut_rows(\+remove_classes)?$/);
+    }
+  }
 });
 
 test("lowered bounds: the greedy path and the change limit", () => {

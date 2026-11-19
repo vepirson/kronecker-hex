@@ -14,7 +14,8 @@
 // the first equal key of a bucket is the smallest r1. All arithmetic is on Numbers below 2^53.
 //
 // Memory for q1 (bytes per residue): Legendre marks 1, unusable marks 1, keys 4 + 4, bucket order 4, bucket starts
-// at most 4: about 18. At the cap of 40 sign cells q1 is just above 2^23, so about 150 MB while one row is solved.
+// at most 4: about 18, of which about 16 are allocated at the same time. At the cap of 47 sign cells (CAP_K of
+// row_limit.mjs) q1 is just above 2^27, so about 2 GB while one row is solved.
 
 import { CodedError } from "../core/bigint_utils.mjs";
 import { jacobiNumber } from "../core/kronecker.mjs";

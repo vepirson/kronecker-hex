@@ -87,8 +87,20 @@ export function parseBigIntStrict(s) {
   return BigInt(t);
 }
 
-// Number of decimal digits of |b| for a bigint b (digitCount(0n) = 1).
+// Number of decimal digits of |b| for a bigint b (digitCount(0n) = 1), exact. A long number is not written in decimal
+// (that costs far more than a step of a CRT): its hexadecimal form (linear time) gives log10 |b| up to a small error
+// (eps below), and only when that is so close to a whole number that the floor could be wrong, |b| is compared with the
+// powers of ten.
+const LOG10_2 = Math.log10(2);
 export function digitCount(b) {
-  const s = (b < 0n ? -b : b).toString();
-  return s.length;
+  const a = b < 0n ? -b : b;
+  if (a < 1000000000000000n) return a.toString().length;
+  const hex = a.toString(16);
+  const head = hex.length > 13 ? 13 : hex.length;
+  const lg = Math.log10(parseInt(hex.slice(0, head), 16)) + (hex.length - head) * 4 * LOG10_2;
+  const k = Math.floor(lg);
+  // the error of lg: the cut head (below 1e-14) and the rounding of the product (about lg times 1e-16)
+  const eps = 1e-9 + lg * 1e-14;
+  if (lg - k > eps && k + 1 - lg > eps) return k + 1;
+  return a >= 10n ** BigInt(k + 1) ? k + 2 : a >= 10n ** BigInt(k) ? k + 1 : k;
 }

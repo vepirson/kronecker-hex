@@ -105,6 +105,10 @@
 .lab-hover-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 /* the bottom right of the canvas: the page bar of the site */
 .lab-pagebar { position: absolute; right: 6px; bottom: 6px; padding: 2px; }
+/* the progress display of a run in the background, above the page bar, never wider than the canvas less its margins */
+.lab-run { position: absolute; right: 6px; bottom: 46px; z-index: 6; max-width: calc(100% - 12px); }
+/* the link to the list of shapes under the text of the first step */
+.lab-other-shapes { margin: 8px 0 0; }
 /* the second table (the small primes) under the first one, with a little room between them */
 .lab-table + .lab-table { margin-top: 10px; }
 .lab-table[hidden] { display: none; }

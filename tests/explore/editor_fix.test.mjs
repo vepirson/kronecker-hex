@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { quickFix, verdictWords, chipLine, areaGenusText, typeLabel, verdictMark } from "../../src/ui/editor/verdict.mjs";
+import { quickFix, searchesFix, verdictWords, chipLine, areaGenusText, typeLabel, verdictMark } from "../../src/ui/editor/verdict.mjs";
 import { fixOf, handleMessage, BLUE_MAX_CHOICES } from "../../src/ui/editor/fix.worker.mjs";
 import { createEditorState, analyseShape, COLOURS } from "../../src/ui/editor/editor_state.mjs";
 import { fixShape } from "../../src/core/shape_fix.mjs";
@@ -63,21 +63,27 @@ test("the short text beside the verdict: the facts in the Explorer's form, else 
   assert.equal(areaGenusText(70, 4), "70 cells | genus 4");
 });
 
-test("quickFix agrees with fixShape wherever it decides, and leaves the rest to the search", () => {
-  const shapes = [[], [[0, 0]], [[0, 0], [5, 5]], RHOMBUS, CUT, shapeS(1), shapeS(3), shapeZ(2), shapeZ(3)];
+test("quickFix agrees with fixShape wherever no search runs, and the search finds a fix for the rest", () => {
+  const strip = Array.from({ length: 60 }, (_, i) => [i, 0]);
+  const shapes = [[], [[0, 0]], [[0, 0], [5, 5]], RHOMBUS, CUT, shapeS(1), shapeS(3), shapeZ(2), shapeZ(3), strip];
   let searched = 0;
   for (const cells of shapes) {
     const a = analyseShape(cells);
     for (const c of COLOURS) {
       const q = quickFix(a, c);
       const full = fixShape(cells, c);
-      if (q === undefined) {
+      if (searchesFix(q)) {
         searched++;
         assert.ok(full && !full.none, `${JSON.stringify(cells)} in ${c}: the search finds a fix`);
       } else assert.deepEqual(q, full, `${JSON.stringify(cells)} in ${c}`);
     }
   }
-  assert.ok(searched >= 6, `${searched} cases left to the search`);
+  assert.ok(searched >= 8, `${searched} cases left to the search`);
+  // the long row is searched with its own words kept; a shape that is not connected gets no fix, as an empty one
+  assert.equal(searchesFix({ none: true, reason: "row_too_long" }), true);
+  assert.equal(searchesFix({ none: true, reason: "not_connected" }), false);
+  assert.equal(searchesFix({ none: true, reason: "empty" }), false);
+  assert.equal(searchesFix(null), false);
 });
 
 test("the editor's fix: the rhombus in +1 and -1 loses one cell, S_1 in 0 gets cells added, the cut-off shape", () => {
@@ -110,7 +116,13 @@ test("the fix worker answers a job with the editor's fix and its time, a bad job
 });
 
 test("Apply fix: editCells is one stroke, one undo brings the shape back, the result can be built", () => {
-  for (const [cells, colour] of [[RHOMBUS, 1], [shapeS(1), 0], [CUT, -1]]) {
+  const strip = Array.from({ length: 60 }, (_, i) => [i, 0]);
+  // a shape that is not connected: no fix, nothing to apply
+  for (const [cells, colour] of [[[[0, 0], [2, 0]], 1], [[[0, 0], [3, 0], [0, 4], [1, 4]], -1], [[[0, 0], [5, 5]], 0]]) {
+    assert.deepEqual(fixOf(cells, colour), { none: true, reason: "not_connected" });
+    assert.deepEqual(quickFix(analyseShape(cells), colour), { none: true, reason: "not_connected" });
+  }
+  for (const [cells, colour] of [[RHOMBUS, 1], [shapeS(1), 0], [CUT, -1], [strip, -1]]) {
     const s = createEditorState({ cells, colour });
     const before = s.cells();
     const f = fixOf(s.cells(), colour);
