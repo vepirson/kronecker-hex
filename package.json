@@ -1,0 +1,15 @@
+{
+  "name": "kronecker-hex",
+  "version": "0.1.0",
+  "description": "The Kronecker symbol (x|d) on the hexagonal grid, and finite regions of every genus.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node tools/serve.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

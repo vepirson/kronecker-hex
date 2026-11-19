@@ -1,0 +1,8 @@
+{
+  "start.lead": "<p>Choose a shape and a region type.</p>",
+  "step0.what": "<p>A cell $(i,j)$ is the offset of the point $(x+i,d+j)$ from a base point $(x,d)$. We pack the shape $S$ of region type $\\varepsilon\\in\\{-1,+1\\}$ into $(x,d)$ with its neighbours $\\varepsilon'\\ne\\varepsilon$. Let $n$ and $m$ count rows and columns that $S$ and its neighbours span.</p>",
+  "step1.what": "<p>For each prime $p\\le B$ where at least $B\\ge\\max\\{n,m\\}$, pick a class $(a,b)$ modulo $p$ that contains no cell of $S$ and set $x\\equiv-a$, $d\\equiv-b\\pmod p$. Every cell in that class is then divisible by $p$ in both coordinates, so its region type is $0$.</p><p>If no cell of $S$ and its neighbours lies in a column $i\\equiv a\\pmod p$, only $x\\equiv-a$ is set and $d$ stays free. For $p=2$ also fix $x$ modulo $8$.</p>",
+  "step2.what": "<p>The conditions on $x$ join into $x\\equiv X\\pmod{M_x}$. The cells outside these classes remain: they get region type $\\pm1$ in the next steps.</p>",
+  "step3.what": "<p>For each row $j$ pick primes $B\\lt q_1\\lt q_2$ with $d\\equiv-j\\pmod{q_1q_2}$, here the two smallest unused primes $q\\ge L$. The conditions on $d$ join into $d\\equiv D\\pmod{M_d}$.</p>",
+  "step4.what": "<p>A candidate $d=D+tM_d$ needs $q_1^2,q_2^2\\nmid d+j$ on every row. Then $d+j=u_jq_1q_2c_j$, where $u_j$ is the part of $d+j$ with prime factors at most $B$, and the cofactor $c_j$ has only prime factors greater than $B$ and is coprime to $q_1q_2$. Each row also gets its $R$, see the next step.</p>"
+}

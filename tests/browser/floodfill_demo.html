@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Region worker demo</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font: 14px/1.4 monospace; margin: 16px; background: #fff; color: #111; }
+  pre { white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Region worker demo</h1>
+<p>Query: <code>?cells=x,d[,cap[,directedCap]];x,d;...</code>. Each cell is filled in the region worker, one after the
+other, with the path of a certificate. The records (without the cell list) and the times are written below as JSON.</p>
+<p>Status: <span id="status">starting</span></p>
+<pre id="out"></pre>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const spec = (q.get("cells") || "0,3;5,1;-3,-1;1080,517").split(";").filter((s) => s.trim() !== "");
+const out = document.getElementById("out");
+const status = document.getElementById("status");
+const finish = (state, records, error) => {
+  window.fillDemo = { ready: true, state, records, error: error || null };
+  out.textContent = JSON.stringify({ state, error: error || null, records }, null, 1);
+  status.textContent = state;
+  document.body.dataset.status = state;
+};
+const runOne = (worker, id, msg) => new Promise((resolve, reject) => {
+  const t0 = performance.now();
+  let progress = 0;
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.id !== id) return;
+    if (m.type === "progress") progress++;
+    else if (m.type === "filled") resolve({ result: m.result, cells: m.flat.length / 2, workerMs: m.ms, wallMs: performance.now() - t0, progress });
+    else if (m.type === "error") reject(new Error(`${m.code}: ${m.message}`));
+  };
+  worker.onerror = (e) => reject(new Error(`worker error: ${e.message}`));
+  worker.postMessage(msg);
+});
+const records = [];
+try {
+  const worker = new Worker(new URL("../../src/workers/floodfill.worker.mjs", import.meta.url), { type: "module" });
+  status.textContent = "running";
+  for (const [k, s] of spec.entries()) {
+    const [x, d, cap, directedCap] = s.split(",").map((v) => v.trim());
+    const msg = { type: "fill", id: k + 1, x, d, withPath: true };
+    if (cap) msg.cap = Number(cap);
+    if (directedCap) msg.directedCap = Number(directedCap);
+    const r = await runOne(worker, k + 1, msg);
+    records.push({ x, d, cap: msg.cap || null, directedCap: msg.directedCap || null, ...r });
+  }
+  worker.terminate();
+  finish("done", records);
+} catch (e) {
+  finish("error", records, String(e.message || e));
+}
+</script>
+</body>
+</html>

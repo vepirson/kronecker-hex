@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI kit demo</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../styles/base.css">
+<style>
+  .demo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .demo section { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; }
+  .demo h2 { font-size: 15px; margin: 0 0 6px; }
+  #hv { height: 420px; }
+  #log { font: 12px var(--mono); white-space: pre-wrap; max-height: 12em; overflow: auto; }
+</style>
+</head>
+<body>
+<main class="demo">
+  <section>
+    <h2>Interactive view</h2>
+    <div id="hv" class="hexview"><canvas id="hv-canvas"></canvas></div>
+    <div id="hv-status" class="mono"></div>
+  </section>
+  <section>
+    <h2>Fixed window (renderWindow)</h2>
+    <canvas id="rw-canvas" class="hexwindow"></canvas>
+  </section>
+  <section>
+    <h2>Big number</h2>
+    <div id="bn"></div>
+  </section>
+  <section>
+    <h2>Stepper</h2>
+    <div id="st"></div>
+    <div id="st-pos" class="mono"></div>
+  </section>
+  <section>
+    <h2>Pass badges</h2>
+    <div id="badge-pass"></div>
+    <div id="badge-fail"></div>
+  </section>
+  <section>
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+<script type="module">
+import { kronecker } from "../../src/core/kronecker.mjs";
+import { neighbourhood, cellKey } from "../../src/core/geometry.mjs";
+import { openToken } from "../../src/formats/token.mjs";
+import { makeWitness, verifyWitness } from "../../src/formats/witness.mjs";
+import { createHexView, kroneckerSource, staticSource, renderWindow, fittedWindow, resolveColours, exportColours } from "../../src/render/hex_canvas.mjs";
+import { outline, fadeOutside, region, highlight, labels, modGrid, marker, fadeHex, mixHex, parseColour } from "../../src/render/overlays.mjs";
+import { exportPng, exportCanvas } from "../../src/render/export_png.mjs";
+import { bigNumber } from "../../src/ui/widgets/bignum.mjs";
+import { createStepper } from "../../src/ui/widgets/stepper.mjs";
+import { passBadge } from "../../src/ui/widgets/badge.mjs";
+import { loadJson } from "../../src/ui/dom.mjs";
+
+const $ = (id) => document.getElementById(id);
+const say = (t) => { $("log").textContent += t + "\n"; };
+const tokens = await loadJson(new URL("../../data/tokens.json", import.meta.url));
+let view = null;
+
+const sameRgb = (data, w, X, Y, rgb) => {
+  const k = 4 * (Y * w + X);
+  return data[k] === rgb[0] && data[k + 1] === rgb[1] && data[k + 2] === rgb[2] && data[k + 3] === 255;
+};
+const pixelAt = (data, w, X, Y) => { const k = 4 * (Y * w + X); return [data[k], data[k + 1], data[k + 2], data[k + 3]]; };
+
+// Compares the pixel at every cell centre of a rendered window with the expected colour expect(i, j) (a CSS colour).
+// clip (optional): the picture rectangle { x0, y0, x1, y1 } in canvas pixels, centres outside it are skipped.
+function checkCentres(canvas, info, expect, cellsOf, clip) {
+  const ctx = canvas.getContext("2d");
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const r = info.dpr || 1;
+  const c = clip || { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
+  let cells = 0, mismatches = 0;
+  const examples = [];
+  for (const [i, j] of cellsOf) {
+    const fx = (info.originX + (i - j / 2) * info.cell) * r;
+    const fy = (info.originY - j * Math.sqrt(3) / 2 * info.cell) * r;
+    if (fx < c.x0 || fy < c.y0 || fx >= c.x1 || fy >= c.y1) continue;
+    const X = Math.floor(fx);
+    const Y = Math.floor(fy);
+    cells++;
+    const want = parseColour(expect(i, j));
+    if (!sameRgb(img.data, canvas.width, X, Y, want)) {
+      mismatches++;
+      if (examples.length < 5) examples.push({ i, j, want, got: pixelAt(img.data, canvas.width, X, Y) });
+    }
+  }
+  return { cells, mismatches, examples };
+}
+
+// The cells whose centre lies inside the fitted window.
+function windowCells(fw) {
+  const out = [];
+  for (const [j, lo, hi] of fw.rows) for (let i = lo; i <= hi; i++) out.push([i, j]);
+  return out;
+}
+
+function witnessOf(label) {
+  const t0 = performance.now();
+  const r = openToken(tokens[label]);
+  const t1 = performance.now();
+  const w = makeWitness({ id: label, colour: r.data.colour, x0: r.x0, d0: r.d0, seed: r.data.seed, shape: r.data.shape });
+  const t2 = performance.now();
+  return { r, w, ms: { open: t1 - t0, make: t2 - t1 } };
+}
+
+window.kitDemo = {
+  tokens,
+  setPalette(p) { if (p === "colourblind") document.documentElement.dataset.palette = p; else delete document.documentElement.dataset.palette; },
+  setTheme(t) { if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; },
+  colours() { return resolveColours(); },
+
+  // renderWindow of a box at (x, d) with the Kronecker source, centre pixels against the core's kronecker.
+  async pixelCheck({ x, d, bounds, cell = 14, dpr }) {
+    const X = BigInt(x), D = BigInt(d);
+    const t0 = performance.now();
+    let progress = 0;
+    const info = await renderWindow($("rw-canvas"), { source: kroneckerSource(X, D), bounds, cell, dpr, onProgress: () => progress++ });
+    const ms = performance.now() - t0;
+    const fills = resolveColours().fills;
+    const fw = fittedWindow(bounds, cell, info.pad);
+    const res = checkCentres($("rw-canvas"), info, (i, j) => fills[kronecker(X + BigInt(i), D + BigInt(j))], windowCells(fw));
+    return { ...res, ms, progress, width: info.width, height: info.height, dpr: info.dpr, canvas: [$("rw-canvas").width, $("rw-canvas").height] };
+  },
+
+  // renderWindow with a static source: centre pixels against the fill or the empty colour.
+  async pixelCheckStatic({ bounds, cell = 14, dpr }) {
+    const f = (i, j) => [-1, 0, 1, null, 1][(((i * 7 + j * 3) % 5) + 5) % 5];
+    const info = await renderWindow($("rw-canvas"), { source: staticSource(f), bounds, cell, dpr });
+    const col = resolveColours();
+    const fw = fittedWindow(bounds, cell, info.pad);
+    const res = checkCentres($("rw-canvas"), info, (i, j) => (f(i, j) === null ? col.empty : col.fills[f(i, j)]), windowCells(fw));
+    return { ...res, width: info.width, height: info.height, dpr: info.dpr };
+  },
+
+  // renderWindow of a shipped witness (from its token) fitted to its shape, optionally with fade + outline.
+  async pixelCheckWitness(label, { fade = false, cell = 12, dpr } = {}) {
+    const { r, w } = witnessOf(label);
+    const shape = r.data.shape;
+    const inside = new Set(shape.map(([i, j]) => cellKey(i, j)));
+    const overlays = fade ? [outline(shape), fadeOutside(shape, 0.45)] : [];
+    const t0 = performance.now();
+    const info = await renderWindow($("rw-canvas"), { source: kroneckerSource(r.x0, r.d0), bounds: shape, cell, overlays, dpr });
+    const ms = performance.now() - t0;
+    const col = resolveColours();
+    const fills = col.fills;
+    const fw = fittedWindow(shape, cell, info.pad);
+    // the fade mixes with the theme's soft target: white in the light theme, the dark canvas in the dark theme
+    const expect = (i, j) => {
+      const k = kronecker(r.x0 + BigInt(i), r.d0 + BigInt(j));
+      return fade && !inside.has(cellKey(i, j)) ? mixHex(fills[k], col.softTo, 0.45) : fills[k];
+    };
+    const res = checkCentres($("rw-canvas"), info, expect, windowCells(fw));
+    return { ...res, ms, label, colour: r.data.colour, digits: { x0: w.digits.x0, d0: w.digits.d0 }, area: shape.length, width: info.width, height: info.height };
+  },
+
+  // The soft look in renderWindow: soft: true with region(shape) (mode "region") or no soft option with
+  // fadeOutside([]) (mode "fadeEmpty", everything soft). Centre pixels: inside the region the fill, every other cell
+  // its soft colour (resolveColours().softFills). Returns the counts by expected colour too.
+  async softCheck(label, { mode = "region", cell = 12, dpr } = {}) {
+    const { r } = witnessOf(label);
+    const shape = r.data.shape;
+    const inside = new Set(shape.map(([i, j]) => cellKey(i, j)));
+    const opts = mode === "region" ? { soft: true, overlays: [region(shape)] } : { overlays: [fadeOutside([])] };
+    const info = await renderWindow($("rw-canvas"), { source: kroneckerSource(r.x0, r.d0), bounds: shape, cell, dpr, ...opts });
+    const col = resolveColours();
+    const fw = fittedWindow(shape, cell, info.pad);
+    const seen = {};
+    const expect = (i, j) => {
+      const k = kronecker(r.x0 + BigInt(i), r.d0 + BigInt(j));
+      const c = mode === "region" && inside.has(cellKey(i, j)) ? col.fills[k] : col.softFills[k];
+      seen[c] = (seen[c] || 0) + 1;
+      return c;
+    };
+    const res = checkCentres($("rw-canvas"), info, expect, windowCells(fw));
+    return { ...res, label, mode, area: shape.length, colour: r.data.colour, seen, fills: col.fills, softFills: col.softFills, softTo: col.softTo, softFraction: col.softFraction, canvasColour: col.canvas };
+  },
+
+  // exportPng of a witness window (fade 0.45, outline, pad 3.5): size against fittedWindow, decoded centre pixels.
+  // look "soft": the same picture made with { soft: true, overlays: [region(shape)] }.
+  async exportCheck(label, { cell = 12, caption = false, look = "fade" } = {}) {
+    const { r } = witnessOf(label);
+    const shape = r.data.shape;
+    const inside = new Set(shape.map(([i, j]) => cellKey(i, j)));
+    const lookOpts = look === "soft" ? { soft: true, overlays: [region(shape)] } : { overlays: [outline(shape), fadeOutside(shape)] };
+    const opts = { source: kroneckerSource(r.x0, r.d0), bounds: shape, cell, ...lookOpts, caption: caption ? [`${label}`, "colours: blue 0, green +1, red -1"] : undefined };
+    const blob = await exportPng(opts);
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    const fw = fittedWindow(shape, cell, 3.5);
+    const { meta } = await exportCanvas(opts);
+    const fills = exportColours().fills;
+    const expect = (i, j) => {
+      const k = kronecker(r.x0 + BigInt(i), r.d0 + BigInt(j));
+      return inside.has(cellKey(i, j)) ? fills[k] : fadeHex(fills[k], 0.45);
+    };
+    const clip = { x0: meta.pictureLeft, y0: 0, x1: meta.pictureLeft + meta.pictureWidth, y1: meta.pictureHeight };
+    const res = checkCentres(c, { originX: meta.originX, originY: meta.originY, cell, dpr: 1 }, expect, windowCells(fw), clip);
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode(...buf.subarray(k, k + 0x8000));
+    const png = btoa(bin);
+    return { ...res, type: blob.type, bytes: blob.size, png: [bmp.width, bmp.height], fitted: [fw.width, fw.height], meta: { width: meta.width, height: meta.height, originX: meta.originX, originY: meta.originY, pictureLeft: meta.pictureLeft, captionLines: meta.captionLines.length }, base64: png, x0: r.x0.toString(), d0: r.d0.toString(), shape, fills };
+  },
+
+  // Open a witness token, verify it and paint its fitted window in the interactive view; phase times in ms.
+  async timeWitness(label) {
+    if (view) view.destroy();
+    const t0 = performance.now();
+    const { r, w, ms } = witnessOf(label);
+    const t1 = performance.now();
+    const v = verifyWitness(w);
+    const t2 = performance.now();
+    const shape = r.data.shape;
+    view = createHexView($("hv-canvas"), { source: kroneckerSource(r.x0, r.d0), cell: 12 });
+    view.fit(shape);
+    view.setOverlays([fadeOutside(shape), outline(shape)]);
+    let first = null;
+    let windowDone = null;
+    const src = view.source;
+    const wcells = windowCells(fittedWindow(shape, 12, 3.5));
+    const off = view.onFrame((f) => {
+      const now = performance.now();
+      if (first === null) first = { ms: now - t2, pending: f.pending };
+      if (windowDone === null && wcells.every(([i, j]) => src.ready(i, j))) windowDone = now - t2;
+    });
+    const done = await view.whenComplete();
+    off();
+    const t3 = performance.now();
+    passBadge($("badge-pass"), v);
+    return { label, pass: v.pass, reasons: v.reasons, open: ms.open, make: ms.make, verify: t2 - t1, firstFrame: first, windowPaint: windowDone, windowCells: wcells.length, paint: t3 - t2, total: t3 - t0, totalWindow: t2 - t0 + windowDone, cells: done.cells, cell: view.getView().cell };
+  },
+
+  // A live view at (x, d) with every overlay, for the interaction checks.
+  async startLive({ x = "1080", d = "517", cell = 22, overlays = true } = {}) {
+    if (view) view.destroy();
+    view = createHexView($("hv-canvas"), { source: kroneckerSource(BigInt(x), BigInt(d)), cell });
+    const clicks = [];
+    const hovers = [];
+    window.kitDemo.clicks = clicks;
+    window.kitDemo.hovers = hovers;
+    view.onCellClick((c) => clicks.push(c));
+    view.onCellHover((c) => hovers.push(c));
+    view.onViewChange((v) => { $("hv-status").textContent = `middle ${v.middle} x ${v.x} d ${v.d} cell ${v.cell.toFixed(2)}`; });
+    if (overlays) {
+      const disc = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]];
+      view.setOverlays([fadeOutside(disc), highlight([[3, 1], [4, 1]], "#ffcc00"), modGrid(5, 0, 0), outline(disc), marker([0, 0]), labels([[0, 0, "0"], [2, 2, "a"]])]);
+    }
+    await view.whenComplete();
+    return view.getView();
+  },
+  setOverlays(list) { view.setOverlays(list); },
+  clearOverlays() { view.setOverlays([]); return view.whenComplete().then(() => true); },
+  getView() { return view.getView(); },
+  panBy(dx, dy) { view.panBy(dx, dy); return view.whenComplete().then(() => view.getView()); },
+  setCell(px) { view.setCell(px); return view.whenComplete().then(() => view.getView()); },
+  setCentre(x, d) { view.setCentre(x, d); return view.whenComplete().then(() => view.getView()); },
+  complete() { return view.whenComplete(); },
+  toScreen(i, j) { return view.toScreen(i, j); },
+
+  // cellAt(toScreen(i, j)) = (i, j) on a 21 x 21 block around the view middle, at the current zoom and at five zooms.
+  inverse({ zooms = true } = {}) {
+    const res = [];
+    const keep = view.getView().cell;
+    const list = zooms ? [keep, 4, 9.5, 22, 61.3, 160] : [keep];
+    for (const z of list) {
+      if (z !== keep) view.setCell(z);
+      const [mi, mj] = view.getView().middle;
+      let n = 0, bad = 0;
+      for (let dj = -10; dj <= 10; dj++) for (let di = -10; di <= 10; di++) {
+        const [X, Y] = view.toScreen(mi + di, mj + dj);
+        const c = view.cellAt(X, Y);
+        n++;
+        if (c[0] !== mi + di || c[1] !== mj + dj) bad++;
+      }
+      res.push({ cell: view.getView().cell, cells: n, mismatches: bad });
+    }
+    view.setCell(keep);
+    return res;
+  },
+
+  // The pixel of the live canvas at toScreen(i, j) for the visible cells, against the core's kronecker (no overlays).
+  async livePixelCheck() {
+    await view.whenComplete();
+    const cv = $("hv-canvas");
+    const img = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+    const dpr = cv.width / cv.clientWidth;
+    const src = view.source;
+    const fills = resolveColours().fills;
+    const [mi, mj] = view.getView().middle;
+    let cells = 0, bad = 0;
+    const examples = [];
+    for (let dj = -60; dj <= 60; dj++) for (let di = -90; di <= 90; di++) {
+      const i = mi + di, j = mj + dj;
+      const [X, Y] = view.toScreen(i, j);
+      const px = Math.floor(X * dpr), py = Math.floor(Y * dpr);
+      if (X < 2 || Y < 2 || X > cv.clientWidth - 2 || Y > cv.clientHeight - 2) continue;
+      cells++;
+      const want = parseColour(fills[kronecker(src.x + BigInt(i), src.d + BigInt(j))]);
+      if (!sameRgb(img.data, cv.width, px, py, want)) {
+        bad++;
+        if (examples.length < 5) examples.push({ i, j, want, got: pixelAt(img.data, cv.width, px, py) });
+      }
+    }
+    return { cells, mismatches: bad, examples, dpr };
+  },
+
+  // Widgets: the big number of a witness x0, a stepper on a fake position, the two badges.
+  widgets(label) {
+    const { r, w } = witnessOf(label);
+    const bn = bigNumber($("bn"), r.x0, { label: "x0" });
+    const subCounts = [0, 3, 2, 0];
+    let pos = { step: 0, sub: 0 };
+    const st = createStepper($("st"), {
+      steps: [{ id: "a", title: "first" }, { id: "b", title: "second" }, { id: "c", title: "third" }, { id: "d", title: "fourth" }],
+      getPos: () => ({ ...pos, subCount: subCounts[pos.step] }),
+      subCountOf: (k) => subCounts[k],
+      setPos: (p) => { pos = { step: p.step, sub: Math.min(p.sub, subCounts[p.step]) }; $("st-pos").textContent = `${pos.step}.${pos.sub}`; },
+      playMs: 60,
+    });
+    window.kitDemo.stepper = st;
+    window.kitDemo.stepPos = () => ({ ...pos });
+    passBadge($("badge-pass"), verifyWitness(w));
+    const bad = { ...w, genus: w.genus + 1 };
+    passBadge($("badge-fail"), verifyWitness(bad));
+    return { parts: bn.parts, x0: r.x0.toString() };
+  },
+  neighbourhood,
+};
+window.kitDemo.ready = true;
+say("kit demo ready");
+</script>
+</body>
+</html>

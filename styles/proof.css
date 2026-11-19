@@ -1,0 +1,93 @@
+/* The Proof page: one readable text column (about 70 characters), figures allowed wider, no boxes around the
+   paragraphs. Each figure: one row of controls, the canvas in a box of reserved height, one caption line of reserved
+   height, the longer lines behind a closed "details" disclosure. Colours come from the theme variables of base.css. */
+
+/* The page takes the whole column of the doc layout (at most 1100 px): the text keeps its 70 characters at the left,
+   figures stay at most 980 px wide, a display formula wider than the text may use the rest of the column. */
+.proof-page { max-width: none; margin: 0; }
+.proof-page > .page-title, .proof-page > .page-lead { max-width: 70ch; }
+
+.proof-toc { max-width: 70ch; margin: 0 0 8px; font-size: 14px; }
+.proof-toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 24px; }
+.proof-toc li { margin: 1px 0; break-inside: avoid; }
+@media (max-width: 560px) { .proof-toc ol { columns: 1; } }
+
+.proof-loading { color: var(--muted); }
+
+.proof-section { margin: 26px 0 0; }
+.proof-section > h2 { font-size: 19px; margin: 0 0 8px; max-width: 70ch; scroll-margin-top: 8px; }
+.proof-section { scroll-margin-top: 8px; }
+/* --tc is the width of the text column at each level (a theorem or an aside takes 15 px for its rule and padding) */
+.proof-body { line-height: 1.6; --tc: 70ch; }
+.proof-body .proof-theorem, .proof-body .proof-aside { --tc: calc(70ch - 15px); }
+.proof-body .proof-aside .proof-theorem { --tc: calc(70ch - 30px); }
+.proof-body > :not(.proof-figure):not(.math-display):not(.proof-theorem):not(.proof-aside),
+.proof-body .proof-theorem > :not(.math-display):not(.proof-theorem),
+.proof-body .proof-aside > :not(.math-display):not(.proof-theorem) { max-width: var(--tc); }
+.proof-body > .proof-theorem, .proof-body > .proof-aside { max-width: none; }
+.proof-body h3 { font-size: 16px; margin: 20px 0 4px; }
+.proof-body p { margin: 8px 0; }
+.proof-body ul, .proof-body ol { padding-left: 22px; }
+
+/* theorems and the aside: a thin rule on the left, no box */
+.proof-theorem { border-left: 3px solid var(--select); padding: 0 0 0 12px; margin: 12px 0; }
+.proof-theorem > p { margin: 6px 0; }
+.proof-aside { border-left: 3px solid var(--border); padding: 0 0 0 12px; margin: 14px 0; color: var(--text); }
+
+/* A display formula is centred on the text column when it fits there. A wider one starts at the left edge of the text
+   and may use the whole width of the column (to the right of the text). One that is a little wider still is reduced
+   to fit (to no less than 85 percent, fitDisplayFormulas of proof.mjs), and only when even that is not enough (a
+   phone) it scrolls inside itself: the page never scrolls sideways. */
+.proof-body .math-display { display: block; width: max-content; min-width: min(var(--tc), 100%); max-width: 100%; }
+.proof-body .katex-display, .proof-info .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.proof-page .math-error { font-family: var(--mono); color: var(--fail); }
+
+.proof-figcap { color: var(--muted); font-size: 14px; margin: 14px 0 4px; }
+
+/* ---------- figures ---------- */
+.proof-figure { margin: 4px 0 18px; min-width: 0; max-width: 980px; }
+.proof-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 6px; font-size: 14px; }
+.proof-label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.proof-int { width: 9ch; }
+.proof-num { width: 10ch; font: 14px var(--mono); padding: 3px 6px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+.proof-range { width: 150px; }
+/* figure A (the sign patterns): one row of controls on every width */
+.proof-weil-controls { flex-wrap: nowrap; gap: 4px 8px; }
+.proof-weil-controls .proof-step { width: 28px; height: 28px; }
+.proof-weil-controls .proof-num { width: 9ch; }
+@media (max-width: 480px) {
+  .proof-weil-controls { gap: 4px 5px; font-size: 13px; }
+  .proof-weil-controls button:not(.icon-btn) { font-size: 13px; padding: 3px 7px; }
+  .proof-weil-controls .proof-num { width: 8.5ch; font-size: 13px; padding: 3px 4px; }
+  .proof-weil-controls select { font-size: 13px; padding: 3px 2px; }
+}
+.proof-gvalue { display: inline-block; min-width: 2.2ch; font-variant-numeric: tabular-nums; }
+.proof-seg { display: inline-flex; gap: 2px; }
+.proof-figbox { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.proof-canvas { cursor: pointer; }
+
+.proof-info { margin: 4px 0 0; font-size: 14px; }
+.proof-cap { margin: 0; min-height: 3em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .proof-cap { min-height: 4.5em; } }
+.proof-details { color: var(--muted); }
+.proof-details summary { cursor: pointer; font-size: 13px; width: max-content; }
+.proof-more p { margin: 4px 0; overflow-wrap: anywhere; max-width: 80ch; }
+
+.proof-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.proof-legend .lg { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-left: 6px; }
+.proof-legend .lg-g { background: var(--fill-green); }
+.proof-legend .lg-r { background: var(--fill-red); }
+.proof-legend .lg-b { background: var(--fill-blue); }
+
+/* ---------- the sign-pattern plot ---------- */
+.proof-plot { width: 100%; max-width: 760px; }
+.pw-svg { display: block; width: 100%; height: auto; }
+.pw-band { fill: var(--fill-blue); opacity: 0.16; }
+.pw-bar { fill: var(--fill-green); }
+.pw-miss { stroke: var(--fill-red); stroke-width: 2.2; fill: none; }
+.pw-main { stroke: var(--text); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.pw-lower { stroke: var(--fill-blue); stroke-width: 1; }
+.pw-axis { stroke: var(--muted); stroke-width: 1; }
+/* the text keeps 11 px on the screen: its size in the picture's units follows the drawn width (--pw-font, set by the
+   widget) */
+.pw-tick { fill: var(--muted); font: var(--pw-font, 11px) var(--mono); }

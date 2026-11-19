@@ -1,0 +1,76 @@
+/* The Gallery. One border style (1px var(--border)), one radius (4px), no boxes inside boxes.
+   UI text 13px, numbers in the monospace face. Every card has the same square picture and one caption line from the
+   first paint: nothing moves while the pictures and the checks arrive. The drawing covers the whole square (its
+   window is a little larger, centred, the rest is cut off). Colours come from the theme variables of base.css. The
+   shell (header, page padding) and the focus ring (styles/base.css) are not styled here. */
+
+/* ---------- Gallery ---------- */
+.gal-page { max-width: 1100px; margin: 0 auto; font-size: 13px; }
+/* the title row stays pinned directly below the site's header (pinned too, --header-h of base.css) while the page
+   scrolls, the cards pass under it. Its height is --gal-top-h (set by the page), so that a section's heading lands
+   below both. */
+.gal-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; position: sticky; top: var(--header-h, 0px); z-index: 2;
+  background: var(--bg); border-bottom: 1px solid var(--border); padding: 4px 0; }
+.gal-top .page-title { margin: 0; }
+/* the buttons of the sections beside the title: they wrap, on a phone they scroll sideways in one line */
+.gal-jumps { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.gal-jump { height: 26px; padding: 0 8px; font-size: 13px; font-weight: 400; border-radius: 4px; white-space: nowrap; flex: 0 0 auto; }
+@media (max-width: 520px) { .gal-jumps { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 2px; } }
+/* the swatches of the switch of region types */
+.gal-sq { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
+.gal-sq-g { background: var(--fill-green); }
+.gal-sq-r { background: var(--fill-red); }
+.gal-sq-b { background: var(--fill-blue); }
+
+.gal-group { margin: 18px 0 0; }
+/* a section's heading takes the focus of its button in the title row: it shows no ring then (it is no control) */
+.gal-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 15px; font-weight: 600; margin: 0 0 8px; min-height: 26px;
+  scroll-margin-top: calc(var(--header-h, 0px) + var(--gal-top-h, 0px) + 8px); }
+.gal-h:focus { outline: none; }
+/* the switch of region types: +1, -1, 0, each with a swatch of the present palette */
+.gal-switch { display: inline-flex; gap: 0; }
+.gal-sw { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; padding: 1px 10px; border-radius: 0; font-weight: 400; }
+.gal-sw .mono { font-size: 13px; }
+.gal-sw:first-child { border-radius: 4px 0 0 4px; }
+.gal-sw:last-child { border-radius: 0 4px 4px 0; }
+.gal-sw + .gal-sw { border-left: 0; }
+.gal-sw[aria-pressed="true"] { border-color: var(--border); background: var(--text); color: var(--bg); }
+/* the page buttons of a family: they wrap inside their row on a narrow screen */
+.gal-pages { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.pager-btn { min-width: 30px; height: 26px; padding: 0 6px; font-size: 13px; font-weight: 400; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.pager-btn[aria-current="page"] { background: var(--text); color: var(--bg); border-color: var(--border); }
+
+.gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .gal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+
+.gal-card { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  background: var(--canvas); container-type: inline-size; }
+.gal-link { display: block; color: var(--text); text-decoration: none; }
+.gal-link[href] { cursor: pointer; }
+/* the focus ring of the site (styles/base.css) inside the card, which cuts off what lies outside it */
+.gal-link:focus-visible { outline-offset: -2px; }
+.gal-pic { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.gal-canvas { display: block; flex: 0 0 auto; max-width: none; height: auto; }
+.gal-cap { height: 22px; line-height: 22px; padding: 0 8px; font-size: 12px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: var(--text); background: var(--panel); }
+.gal-cap .mono { font-size: 12px; }
+.gal-sep { color: var(--muted); }
+.gal-card[data-state="fail"] .gal-cap { color: var(--fail); }
+/* a card below 300 pixels shows the first two parts of its caption, cells and genus (the whole line is in its title) */
+@container (max-width: 299px) { .gal-cap .gal-more { display: none; } }
+/* an empty place of a grid, the size of a card */
+.gal-slot { visibility: hidden; border: 1px solid transparent; }
+
+/* the action icons at the top right of the picture: eye, pencil, flask (the page icons of the header) */
+.gal-acts { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; }
+.gal-acts:empty { display: none; }
+.gal-act.icon-btn { width: 24px; height: 24px; min-width: 24px; border-radius: 5px; color: var(--text);
+  background: color-mix(in srgb, var(--panel) 88%, transparent); border-color: var(--border); }
+.gal-act.icon-btn:hover { background: var(--panel); }
+/* a failed check: the cross of the editor's verdict with its reason at the bottom right of the picture (nothing for a
+   passed check) */
+.gal-mark { position: absolute; bottom: 26px; right: 4px; width: 16px; height: 16px; pointer-events: auto; color: var(--fail); }
+.gal-mark[hidden] { display: none; }
+.gal-mark svg { display: block; }
+/* a card whose region is not checked yet says so in its caption */
+.gal-cap-wait { color: var(--muted); }

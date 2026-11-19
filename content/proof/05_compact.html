@@ -1,0 +1,16 @@
+<p>The shapes $S_{g}^{\pm1}$ are thin: three cells wide and about $6g$ cells long. Nothing in Theorem 1 asks for that. A simple sieve produces admissible sets of any outline, full of holes.</p>
+<div class="proof-theorem">
+<p><b>Definition.</b> Let $P\ge2$ and choose a class $a_p\in(\mathbb Z/p)^{2}$ for every prime $p\le P$. The <i>sieved set</i> is</p>
+$$V(P,(a_p))=\{v\in\mathbb Z^{2}:\ v\not\equiv a_p\pmod p\ \text{ for every prime }p\le P\}.$$
+</div>
+<p>It is periodic modulo $\prod_{p\le P}p$ in both coordinates, and by the Chinese remainder theorem its density is $\prod_{p\le P}\left(1-p^{-2}\right)$, which decreases to $6/\pi^{2}=0.6079\ldots$ as $P$ grows.</p>
+<div class="proof-theorem">
+<p><b>Lemma 10 (sieved sets are admissible).</b> Let $S$ be a finite subset of a sieved set $V(P,(a_p))$ that lies in at most $P$ consecutive columns. Then $S$ is admissible.</p>
+</div>
+<p><i>Proof.</i> For a prime $p\le P$ the set $S$ misses the class $a_p$. For a prime $p>P$ the column indices of $S$ take at most $P\lt p$ values, so some residue $a$ modulo $p$ is not the column index of any cell of $S$, and $S$ misses every class $(a,b)$. $\blacksquare$</p>
+<div class="proof-theorem">
+<p><b>Corollary 11.</b> Every finite connected subset $S$ of a sieved set $V(P,(a_p))$ lying in at most $P$ consecutive columns is a region of region type $+1$ for infinitely many $(x,d)$ and a region of region type $-1$ for infinitely many $(x,d)$, with the genus of $S$. The same holds with rows in place of columns.</p>
+</div>
+<p><i>Proof.</i> Lemma 10 and Corollary 2(a). With rows in place of columns the proof of Lemma 10 is the same, with the row indices. $\blacksquare$</p>
+<p class="proof-figcap">Classes $a_p$ drawn from a seed, the sieved set (green) in the disc of radius $t\le(P-1)/2$, so at most $P$ columns. By Lemma 10 the largest piece is admissible for every seed.</p>
+<div class="proof-figure" data-figure="sieve"></div>

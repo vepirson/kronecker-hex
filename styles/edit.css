@@ -1,0 +1,36 @@
+/* Styles of the shape editor page (loaded by the page with useStyles, after explore.css, whose floating controls it
+   shares): the tool row, the colour control and its menu, the verdict, the residue tables of the details. */
+
+.ed .xp-bl:has(> .xp-readout:empty) { display: none; }
+.xp-edit-tools { gap: 2px; }
+.xp-colour { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  border: 1px solid transparent; border-radius: 6px; background: transparent; }
+.xp-colour:hover { background: var(--btn); }
+.xp-colour span { width: 6px; height: 6px; border-radius: 2px; opacity: 0.35; }
+.xp-colour span[data-on="true"] { opacity: 1; width: 10px; height: 10px; }
+.xp-colour .c-green { background: var(--fill-green); }
+.xp-colour .c-red { background: var(--fill-red); }
+.xp-colour .c-blue { background: var(--fill-blue); }
+/* the menu of the region types: every type can be chosen, each shows its verdict for the present shape (a check or a
+   cross, its words as tooltip) */
+.xp-colours { display: flex; flex-direction: column; gap: 2px; min-width: 7em; }
+.xp-colour-item { display: flex; align-items: center; gap: 6px; text-align: left; }
+.xp-colour-item[aria-checked="true"] { font-weight: 700; }
+.xp-colour-type { font-family: var(--mono); min-width: 2.5ch; }
+.xp-colour-verdict { display: inline-flex; margin-left: auto; }
+/* the verdict at the bottom right and the verdict of each type in the menu: green check, red cross (theme colours) */
+.xp-verdict[data-ok="true"], .xp-colour-item[data-ok="true"] .xp-colour-verdict { color: var(--pass); }
+.xp-verdict[data-ok="false"], .xp-colour-item[data-ok="false"] .xp-colour-verdict { color: var(--fail); }
+.xp-verdict { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+/* the verdict icon and its one short text at the start of the chip ("2 cells | genus 0", "Not connected"), no text
+   for the empty shape */
+.ed-verdict { gap: 4px; }
+.ed-verdict .xp-chip-text[hidden] { display: none; }
+.xp-res { border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+.xp-res th, .xp-res td { padding: 0 8px 0 0; text-align: left; white-space: nowrap; }
+.xp-res th { color: var(--muted); font-weight: 600; }
+.xp-res-caption { text-align: left; caption-side: top; padding: 2px 0; font-family: system-ui, sans-serif; }
+.xp-details .xp-res { margin-bottom: 4px; }
+.xp-res td.xp-fail { color: var(--fail); font-weight: 700; }
+.ed[data-tool="draw"] .xp-view canvas { cursor: cell; }
+.ed[data-tool="move"] .xp-view canvas { cursor: grab; }

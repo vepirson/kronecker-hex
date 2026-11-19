@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live construction timing</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font: 14px/1.4 monospace; margin: 16px; background: #fff; color: #111; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Live construction timing</h1>
+<p>Query: <code>?preset=c100|genus0hex|maxhex&amp;colour=green|red</code>. The construction runs in the module worker,
+the page records the events, the time of every solved row and the total wall time.</p>
+<p>Status: <span id="status">starting</span></p>
+<pre id="out"></pre>
+<script type="module">
+const PRESETS = {
+  c100: "../../data/shapes/c100.json",
+  genus0hex: "../../data/shapes/genus0_hexagon.json",
+  maxhex: "../../data/shapes/hexagon_genus117.json",
+};
+const q = new URLSearchParams(location.search);
+const preset = q.get("preset") || "c100";
+const colourName = q.get("colour") || "green";
+const out = document.getElementById("out");
+const status = document.getElementById("status");
+const say = (s) => { out.textContent += s + "\n"; };
+const finish = (state, summary) => {
+  document.body.dataset.summary = JSON.stringify(summary);
+  status.textContent = state;
+  document.body.dataset.status = state;
+};
+try {
+  if (!PRESETS[preset]) throw new Error(`unknown preset ${preset}`);
+  const sh = await (await fetch(new URL(PRESETS[preset], import.meta.url))).json();
+  const input = { shape: sh.shape, seed: sh.seed, colour: colourName === "red" ? -1 : 1, lift: 1 };
+  const worker = new Worker(new URL("../../src/workers/construct.worker.mjs", import.meta.url), { type: "module" });
+  let count = 0;
+  let batches = 0;
+  const rows = [];
+  const t0 = performance.now();
+  status.textContent = "running";
+  worker.onerror = (e) => { say(`worker error: ${e.message}`); finish("error", { error: String(e.message) }); };
+  worker.onmessageerror = () => { say("message error"); finish("error", { error: "messageerror" }); };
+  worker.onmessage = (ev) => {
+    const m = ev.data;
+    if (m.events) {
+      batches++;
+      count += m.events.length;
+      for (const e of m.events) {
+        if (e.type === "rowSolved") rows.push({ j: e.j, q1: e.q1, ms: Math.round(e.ms) });
+        if (e.type === "error") say(`error ${e.code}: ${e.message}`);
+      }
+      return;
+    }
+    if (m.finished) {
+      const total = performance.now() - t0;
+      const r = m.result;
+      for (const x of rows) say(`row ${x.j}: q1 ${x.q1}, ${x.ms} ms`);
+      say(`preset ${preset} ${colourName}: ${count} events in ${batches} batches, ${rows.length} rows, ` +
+          `pass ${r ? r.pass : null}, x0 ${r ? r.digits.x0 : "-"} digits, sha256 x0 ${r ? r.sha256.x0 : "-"}, total ${total.toFixed(0)} ms`);
+      finish("done", { preset, colour: colourName, events: count, batches, rows, totalMs: total, pass: r ? r.pass : null,
+        sha256x: r ? r.sha256.x0 : null, sha256d: r ? r.sha256.d0 : null, userAgent: navigator.userAgent });
+      worker.terminate();
+    }
+  };
+  worker.postMessage({ cmd: "start", id: 1, input });
+} catch (e) {
+  say(`failed: ${e.message}`);
+  finish("error", { error: e.message });
+}
+</script>
+</body>
+</html>

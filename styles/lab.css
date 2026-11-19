@@ -1,0 +1,216 @@
+/* Styles of the Construction Lab (loaded by the page with useStyles). Colours come from the theme and palette
+   variables of base.css. Desktop: ONE control row of 40 px (stepper with the speed of play at the left, status chip,
+   badge, details and buttons at the right), the timeline row of 20 px, then three columns (text, canvas, table) that
+   fill the rest of the viewport height and scroll inside, so stepping and a streaming run never move the layout.
+   Below 1700 px the step buttons show their numbers only (the title is the tooltip). Phones (900 px and below): the
+   row wraps, then canvas, text, table stacked. */
+
+/* The page fills the height under the header (layout "app" of the shell): the control row keeps its 40 px, the three
+   columns take the rest and scroll inside. The start panel scrolls inside too. */
+.site-main:has(> .lab-page) { max-width: none; padding: 0; }
+
+.lab-page { display: flex; flex-direction: column; gap: 0; min-width: 0; height: 100%; padding: 0 12px 8px; overflow: hidden; }
+.lab-start { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-top: 4px; }
+.lab-work { flex: 1 1 auto; min-height: 0; }
+
+/* ---------- the control row ---------- */
+.lab-ctl { flex: 0 0 40px; height: 40px; display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; min-width: 0; font-size: 13px; }
+.lab-ctl-right { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
+/* the right part keeps the widest width it has had (set by the page as --lab-right-min), so that the status chip
+   never moves when the buttons after it change: a narrower state spreads its room between the items */
+@media (min-width: 901px) {
+  .lab-ctl-right { min-width: var(--lab-right-min, 0); justify-content: space-between; }
+}
+.lab-status { display: inline-block; flex: 0 0 auto; width: 17ch; height: 20px; line-height: 20px; text-align: right; font-family: var(--mono);
+  font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.lab-status[data-status="error"] { color: var(--fail); }
+.lab-tampered { color: var(--fail); font-weight: 700; }
+.lab-result { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.lab-result[hidden] { display: none; }
+.lab-same { color: var(--pass); font-family: var(--mono); font-size: 12px; }
+.lab-differs { color: var(--fail); font-weight: 700; }
+/* the place of the comparison mark while a recompute can still bring it (invisible, it only holds the width) */
+.lab-mark-slot { visibility: hidden; }
+.lab-details[aria-expanded="true"] { background: var(--btn); }
+/* the details popover (placed by the site's popover helper): x0, d0, the comparison, the link and the Explorer */
+.lab-details-body { width: 300px; font-size: 13px; line-height: 1.4; box-sizing: border-box; }
+.lab-details-body .bignum { margin: 0 0 2px; }
+.lab-details-body p { margin: 4px 0; }
+.lab-actions, .lab-toolbar { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+.lab-actions:empty, .lab-toolbar:empty, .lab-toolbar[hidden] { display: none; }
+.lab-ctl .lab-x-btn { height: 28px; padding: 0 8px; font-size: 13px; line-height: 1; border-radius: 6px; background: transparent; }
+.lab-ctl .lab-x-btn[aria-pressed="true"], .lab-ctl .lab-x-btn[aria-expanded="true"] { border-color: var(--select); }
+.lab-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+
+/* the stepper: previous step, previous item, play, next item, next step, the position, the step buttons (a number
+   and a title each, an icon instead of the number for the first and the last step: shown only without the title) */
+.lab-stepper { flex: 1 1 auto; min-width: 0; height: 40px; }
+.lab-stepper:empty { display: none; }
+.lab-stepper .stepper { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 8px; height: 100%; }
+.lab-stepper .stepper-controls { flex: 0 0 auto; flex-wrap: nowrap; gap: 2px; }
+.lab-stepper .stepper-play { width: 4.6em; padding: 0; }
+.lab-stepper .stepper-pos { display: inline-block; width: 13.2em; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 12px; font-variant-numeric: tabular-nums; }
+.lab-stepper .stepper-list { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; gap: 2px; }
+.lab-stepper .stepper-list button { height: 28px; min-width: 28px; padding: 0 4px; font-size: 12px; line-height: 1; white-space: nowrap;
+  border-radius: 6px; border: 1px solid transparent; background: transparent; }
+.lab-stepper .stepper-list button:hover:not(:disabled) { background: var(--btn); filter: none; }
+.lab-stepper .stepper-list button[aria-current="step"] { border-color: var(--select); font-weight: 400; }
+/* the first step of each part of the answer ("1. Small primes") in bold, here and in its heading, whether it is the
+   step shown or not (the step shown has its border) */
+.lab-stepper .stepper-list button.lab-step-main, .lab-h2.lab-step-main { font-weight: 700; }
+.lab-step-icon { display: none; }
+/* the label of the step shown: on phones only, beside the position text */
+.lab-step-name { display: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.lab-step-icon .icon { display: block; }
+@media (max-width: 1699px) {
+  .lab-step-title { display: none; }
+  .lab-step-icon { display: inline-flex; }
+  .lab-stepper .stepper-list button { width: 24px; min-width: 24px; padding: 0; }
+  .lab-ctl .lab-x-btn { padding: 0 6px; }
+}
+/* between the phone layout and 1250 px the row stays one row: the position text is kept for screen readers only (the
+   timeline shows the position and carries the same text), the status chip, the tool buttons, the arrows and the step
+   buttons are narrower */
+@media (min-width: 901px) and (max-width: 1249px) {
+  .lab-ctl { gap: 8px; }
+  .lab-stepper .stepper-controls .icon-btn { width: 24px; min-width: 24px; }
+  .lab-stepper .stepper-list button { width: 20px; min-width: 20px; font-size: 11px; }
+  .lab-stepper .stepper-pos { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+  .lab-status { width: 12ch; }
+  .lab-ctl .lab-x-btn { padding: 0 4px; font-size: 12px; }
+}
+
+.lab-work { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+/* the timeline: one row of 20 px under the control row (the track is 12 px, styles/base.css) */
+.lab-timeline { flex: 0 0 20px; height: 20px; min-width: 0; margin-bottom: 2px; }
+/* the speed of play beside the Play button, at most 64 px */
+.lab-speed { width: 52px; max-width: 64px; height: 28px; padding: 0 2px; font-size: 12px; border-radius: 6px; flex: 0 0 auto; }
+.lab-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; grid-template-areas: "text canvas table";
+  gap: 10px; flex: 1 1 auto; height: auto; min-height: 0; min-width: 0; }
+.lab-area-text { grid-area: text; min-width: 0; min-height: 0; overflow-y: auto; overflow-wrap: anywhere; padding-right: 4px; }
+.lab-area-canvas { grid-area: canvas; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.lab-area-table { grid-area: table; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.lab-view { flex: 1 1 auto; height: auto; min-height: 0; }
+/* the bottom left of the canvas: the offsets readout of the cell under the pointer (as on the shape editor page),
+   hidden while the pointer is not on a cell */
+.lab-readout { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; pointer-events: none; }
+.lab-readout:has(> .xp-readout:empty) { display: none; }
+.lab-readout .xp-readout { font-family: var(--mono); font-size: 13px; white-space: pre; height: 18px; line-height: 18px; min-width: 12ch; }
+/* the canvas keeps the normal cursor over every cell (the marker of the hovered cell and the small dark hexagons under
+   the signs show the cells), the grabbing cursor while a drag pans, as on the Explorer */
+.lab-view #lab-canvas { cursor: default; }
+.lab-view #lab-canvas[data-dragging] { cursor: grabbing; }
+/* the layer of the hovered cell's marker, exactly over the canvas, never in the way of the pointer */
+.lab-hover-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* the bottom right of the canvas: the page bar of the site */
+.lab-pagebar { position: absolute; right: 6px; bottom: 6px; padding: 2px; }
+/* the second table (the small primes) under the first one, with a little room between them */
+.lab-table + .lab-table { margin-top: 10px; }
+.lab-table[hidden] { display: none; }
+/* .lab-progress carries the class sr-only of base.css: read by screen readers, the chip shows its numbers */
+
+/* text panel */
+.lab-h2 { font-size: 15px; margin: 0 0 6px; font-weight: 400; }
+.lab-prose { font-size: 14px; }
+/* a display formula wider than the column scrolls inside it */
+.lab-prose .katex-display { overflow-x: auto; overflow-y: hidden; }
+.lab-prose p { margin: 0 0 6px; }
+.lab-small { font-size: 13px; }
+.lab-error-text { color: var(--fail); }
+.lab-nums { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 1px 10px; margin: 6px 0; font-size: 13px; }
+.lab-num { display: contents; }
+.lab-num dt { color: var(--muted); }
+.lab-num dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+.lab-focus { border-left: 3px solid var(--select); padding: 2px 0 2px 8px; margin: 8px 0; font-size: 13px; }
+.lab-focus p { margin: 2px 0; }
+.lab-focus-head { font-weight: 600; }
+.lab-cond { font-family: var(--mono); font-size: 13px; }
+.lab-signs { font-size: 12px; overflow-wrap: anywhere; }
+.lab-big { margin: 4px 0; }
+.lab-mini { border-collapse: collapse; font-size: 12px; font-family: var(--mono); margin: 6px 0; }
+.lab-mini th, .lab-mini td { padding: 0 6px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.lab-mini th { color: var(--muted); font-weight: 600; }
+.lab-mini tfoot td { border-bottom: none; color: var(--muted); }
+.lab-mini tr.lab-focus-row td { background: var(--btn); font-weight: 700; }
+.lab-why { margin: 8px 0; font-size: 13px; }
+.lab-why summary { cursor: pointer; color: var(--link); }
+.lab-why .lab-prose { font-size: 13px; margin-top: 4px; }
+.lab-bars { display: flex; align-items: flex-end; gap: 1px; height: 48px; margin: 4px 0 8px; border-bottom: 1px solid var(--border); }
+.lab-bar { flex: 1 1 0; min-width: 1px; max-width: 10px; background: var(--fill-blue); }
+.lab-bar-row { background: var(--muted); }
+.lab-bar-later { opacity: 0.2; }
+.lab-bar-now { background: var(--select); }
+.lab-swatch { display: inline-block; width: 0.85em; height: 0.85em; border-radius: 2px; border: 1px solid var(--border); }
+.lab-swatch-green { background: var(--fill-green); }
+.lab-swatch-red { background: var(--fill-red); }
+.lab-swatch-blue { background: var(--fill-blue); }
+
+/* error box (top of the text column) */
+.lab-error { border: 1px solid var(--fail); border-radius: 4px; padding: 4px 8px; margin: 0 0 8px; font-size: 13px; }
+.lab-error[hidden] { display: none; }
+.lab-error p { margin: 2px 0; }
+.lab-error-title { color: var(--fail); }
+.lab-error-code { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+
+/* table of the rows */
+.lab-table-box { flex: 1 1 auto; min-height: 0; overflow: auto; position: relative; border: 1px solid var(--border); border-radius: 4px; }
+.lab-table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
+.lab-table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; z-index: 1; }
+.lab-table th, .lab-table td { padding: 1px 5px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.lab-table tbody tr { cursor: pointer; }
+.lab-table tbody tr:hover td { background: var(--btn); }
+.lab-table tr.lab-focus-row td { background: var(--btn); font-weight: 700; box-shadow: inset 0 1px 0 var(--select), inset 0 -1px 0 var(--select); }
+.lab-table td.lab-dot { color: var(--muted); }
+.lab-table td.lab-changed { color: var(--fail); font-weight: 700; }
+.lab-table .bignum { font-size: 11px; }
+
+/* start panel: one card per preset (picture, name, the three colours), the box "any genus", the paste box */
+.lab-start { max-width: 64em; }
+.lab-start[hidden] { display: none; }
+.lab-presets { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(15em, 1fr)); gap: 6px 10px; }
+.lab-presets .lab-card { display: grid; grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 2px;
+  padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.lab-card-pic-box { grid-row: 1 / span 2; width: 96px; height: 64px; }
+.lab-card-pic { display: block; }
+.lab-card-fill-green { fill: var(--fill-green); }
+.lab-card-fill-red { fill: var(--fill-red); }
+.lab-card-fill-blue { fill: var(--fill-blue); }
+.lab-preset-name { font-size: 14px; }
+.lab-card-colours { display: flex; flex-wrap: wrap; gap: 4px; }
+.lab-colour { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 6px; }
+/* a card's message (why a region type is crossed out) under its buttons, across the whole card */
+.lab-card-msg { grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; }
+.lab-card-msg[hidden], #lab-genus-msg[hidden] { display: none; }
+#lab-genus-msg { margin: 2px 0; font-size: 13px; }
+.lab-genus-swatch { display: inline-flex; align-items: center; }
+.lab-colour[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; text-decoration: line-through; }
+.lab-start textarea { width: 100%; word-break: break-all; }
+#lab-genus { width: 6em; }
+
+@media (max-width: 900px) {
+  .lab-page { overflow-y: auto; }
+  .lab-work { flex: none; }
+  .lab-start { flex: none; overflow: visible; }
+  .lab-ctl { flex: none; height: auto; min-height: 40px; flex-wrap: wrap; gap: 2px 12px; padding: 4px 0 6px; }
+  .lab-ctl-right { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; margin-left: 0; white-space: normal; }
+  .lab-toolbar { flex-wrap: wrap; }
+  .lab-status { width: auto; text-align: left; }
+  .lab-stepper { flex-basis: 100%; height: auto; }
+  .lab-stepper .stepper { flex-wrap: wrap; height: auto; gap: 2px 8px; }
+  .lab-stepper .stepper-controls { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; }
+  .lab-stepper .stepper-pos { width: auto; }
+  .lab-step-name { display: inline; }
+  /* the rows above the canvas keep their place while a run starts, ends or is cancelled: the chip (empty on the start
+     panel, where it takes no room) and the slot of Cancel, Run again and Recompute keep their width */
+  .lab-status:not(:empty) { min-width: 13ch; }
+  .lab-page:has(> .lab-work) .lab-actions { display: flex; min-width: 7.5em; }
+  .lab-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "canvas" "text" "table"; height: auto; }
+  .lab-view { flex: none; height: 60vh; min-height: 280px; }
+  .lab-area-text { overflow: visible; }
+  .lab-table-box { max-height: 50vh; }
+}
+/* phones: the step text has a fixed height and scrolls inside, so that stepping never moves the rows table */
+@media (max-width: 600px) {
+  .lab-area-text { height: 40vh; overflow-y: auto; }
+}

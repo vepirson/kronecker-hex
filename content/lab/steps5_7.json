@@ -1,0 +1,6 @@
+{
+  "step5.what": "<p>If $x\\equiv r_1\\pmod{q_1}$, $x\\equiv r_2\\pmod{q_2}$, $x\\equiv R\\pmod{c_j}$, then $$\\left(\\frac{x+i}{d+j}\\right)=\\left(\\frac{x+i}{u_j}\\right)\\left(\\frac{r_1+i}{q_1}\\right)\\left(\\frac{r_2+i}{q_2}\\right)\\left(\\frac{R+i}{c_j}\\right).$$</p><p>The first factor is fixed by the first step ($p=2$ needs $x$ modulo $8$). Choose $R$ so that $R+i$ is coprime to $c_j$, and its Jacobi symbols are then known without factoring $c_j$. What remains is to find $r_1,r_2$ whose two vectors of Legendre symbols multiply to the wanted region types times the two known factors along the row. Tabulate the sign vectors of all residues modulo $q_1$ and modulo $q_2$, sort one table and look up the other. If there is no match, try another $R$ or $d$.</p>",
+  "step6.what": "<p>All moduli are coprime, within a row because $q_1^2,q_2^2\\nmid d+j$, and across rows because a prime greater than $B$ cannot divide two rows $d+j$ and $d+j'$ that differ by less than $B$, so the Chinese remainder theorem gives $(x,d)$.</p>",
+  "step7.what": "<p>From $(x,d)$ alone: every cell of $S$ and of its neighbours gets its symbol $\\left(\\frac{x+i}{d+j}\\right)$, and the region of a cell of $S$ must be exactly $S$.</p>",
+  "tamper.note": "<p>A changed residue with the same sign vector keeps the region.</p>"
+}

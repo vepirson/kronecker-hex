@@ -1,0 +1,8 @@
+{
+  "blue.step0.what": "<p>A cell $(i,j)$ is the offset of the point $(x+i,d+j)$ from a base point $(x,d)$. We pack the shape $S$ of region type $0$ into $(x,d)$ with its neighbours $\\pm1$.</p>",
+  "blue.step1.what": "<p>For each prime $p\\le B$ pick a class $(a,b)$ modulo $p$ that contains no neighbour of $S$ and set $x\\equiv-a$, $d\\equiv-b\\pmod p$. The cells of $S$ in that class get region type $0$.</p>",
+  "blue.step2.what": "<p>Every cell $(i,j)$ of $S$ outside these classes gets its own prime $q>B$ with $q\\mid x+i$ and $q\\mid d+j$.</p>",
+  "blue.step3.what": "<p>The conditions on $d$ join into $d\\equiv D\\pmod{M_d}$, and $d$ is the first $D+tM_d$ with $d+j\\ge1$ on every row.</p>",
+  "blue.step4.what": "<p>The neighbours only need $\\gcd(x+i,d+j)=1$. With $x\\equiv X\\pmod{M_x}$ from the conditions on $x$, the first $x=X+tM_x$ that passes at every neighbour is taken.</p>",
+  "blue.step5.what": "<p>From $(x,d)$ alone: every cell of $S$ and of its neighbours gets its symbol $\\left(\\frac{x+i}{d+j}\\right)$, and the region of a cell of $S$ must be exactly $S$.</p>"
+}

@@ -1,0 +1,38 @@
+/* Steps 5 to 7 of the Construction Lab and its extras (loaded with useStyles by those modules). Colours come from
+   the theme and palette variables of base.css. Nothing here changes a height while stepping: the strips have a fixed
+   row height, the hover line sits over the canvas, the popovers float over the page. */
+
+/* aligned sign strips: a label column, then one column per cell */
+.lab5-strips { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 6px; margin: 6px 0; font-size: 12px;
+  align-items: center; }
+.lab5-strip-label { color: var(--muted); white-space: nowrap; }
+.lab5-strip { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 13px)); gap: 1px; min-width: 0; }
+.lab5-sq { display: block; height: 13px; line-height: 13px; text-align: center; font-family: var(--mono); font-size: 10px;
+  color: #ffffff; border-radius: 2px; overflow: hidden; }
+.lab5-plus { background: var(--fill-green); }
+.lab5-minus { background: var(--fill-red); }
+.lab5-zero { background: var(--fill-blue); }
+.lab5-none { background: var(--empty); }
+.lab5-bad { box-shadow: inset 0 0 0 2px var(--outline); }
+
+/* x0 and d0 at the end of step 6 */
+.lab6-final { margin: 4px 0; }
+
+/* toolbar buttons */
+.lab-x-btn { font-size: 12px; padding: 2px 8px; }
+.lab-x-btn[aria-expanded="true"] { border-color: var(--select); }
+
+/* the hover line: one fixed line over the top left corner of the canvas (empty for a cell without factors: its
+   place is kept, the line is not drawn) */
+.lab-x-hover { position: absolute; left: 6px; top: 6px; height: 1.5em; line-height: 1.5em; max-width: calc(100% - 60px); padding: 0 6px;
+  font-family: var(--mono); font-size: 12px; white-space: pre; overflow: hidden; background: var(--panel); opacity: 0.92;
+  border-radius: 3px; pointer-events: none; }
+.lab-x-hover:empty { visibility: hidden; }
+.lab-x-hover[hidden] { display: none; }
+
+/* the popovers of the toolbar (placed under their button and kept inside the screen by the site's popover helper) */
+.lab-x-pop { z-index: 30; width: min(420px, calc(100vw - 16px)); box-sizing: border-box; color: var(--text); padding: 8px 10px; }
+.lab-x-pop select, .lab-x-pop input { font-size: 13px; }
+.lab-x-msg { min-height: 1.4em; margin: 4px 0; font-size: 12px; overflow-wrap: anywhere; }
+.lab-x-msg[data-pass="false"] { color: var(--fail); }
+.lab-x-msg[data-pass="true"] { color: var(--pass); }

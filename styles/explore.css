@@ -1,0 +1,102 @@
+/* Styles of the Explorer page (loaded by the page with useStyles), also the floating controls of the shape editor
+   page, which loads this file and its own edit.css. The canvas fills the page (layout "app" of the shell), every
+   control floats on it in one of four corners, popovers float too. Colours come from the theme and palette variables
+   of base.css. */
+
+.xp { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--canvas); }
+.xp-view { position: absolute; inset: 0; width: auto; height: auto; min-height: 0; border: 0; border-radius: 0; }
+.xp-view canvas { cursor: pointer; }
+.xp-view canvas[data-dragging] { cursor: grabbing; }
+.xp-hidden { display: none; }
+.xp-muted { color: var(--muted); }
+.xp-error { color: var(--fail); font-weight: 700; }
+.xp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+/* the one separator of the floating rows (the Explorer's chip, the editor's tool row): a thin vertical line between
+   two groups of controls of different kinds, never inside a group, never at the start or the end of a row */
+.xp-edit-sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; flex: 0 0 auto; }
+
+/* the four corners */
+.xp-tl { position: absolute; top: 8px; left: 8px; display: flex; align-items: center; gap: 2px; padding: 3px 4px; max-width: calc(100% - 64px); }
+.xp-bl { position: absolute; left: 8px; bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 4px 8px; }
+.xp-chip { position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px;
+  max-width: calc(100% - 16px); }
+.xp-chip[hidden], .xp-chip-part[hidden], .xp-toast[hidden], .xp-progress[hidden] { display: none; }
+
+/* top left: x, d, go, reset, open, download. A field without the focus holds the short form of a long number,
+   "-4833...4072 (11870 digits)", at most 28 characters of 12 px monospace */
+.xp-form { display: flex; align-items: center; gap: 4px; margin: 0; }
+.xp-field { display: flex; align-items: center; gap: 3px; }
+.xp-field-name { font-family: var(--mono); font-size: 13px; color: var(--muted); padding: 0 1px 0 3px; }
+/* a field keeps its width with the focus (a long number scrolls inside it), so the row never moves */
+.xp-field input { width: 212px; height: 28px; font: 12px var(--mono); padding: 3px 5px; border-radius: 6px; }
+.xp-xd { display: none; font-family: var(--mono); }
+
+/* bottom left: the legend of the region types (.legend of base.css; the shape editor page shows its cell readout there) */
+.xp-legend { font-family: var(--mono); pointer-events: none; }
+.xp-readout { font-family: var(--mono); font-size: 13px; white-space: pre; height: 18px; line-height: 18px; min-width: 12ch;
+  overflow: hidden; text-overflow: ellipsis; max-width: min(60vw, 520px); }
+.xp-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; background: var(--pending); flex: 0 0 auto; }
+.xp-swatch-green { background: var(--fill-green); }
+.xp-swatch-red { background: var(--fill-red); }
+.xp-swatch-blue { background: var(--fill-blue); }
+
+/* bottom right: the chip */
+.xp-chip-part { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.xp-chip-text { font-family: var(--mono); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xp-chip-btns { display: inline-flex; align-items: center; gap: 1px; }
+.xp-chip-btns > [hidden] { display: none; }
+.xp-chip-btns .text-btn { margin: 0 2px; }
+.xp-badge .badge { font-size: 12px; padding: 1px 7px; }
+.xp-badge:empty { display: none; }
+
+/* toast (top centre, at the height of the top-left row: the same top and the same 36 px box, below the top controls
+   when it would meet them, toast.mjs) and progress (bottom centre). The note line is centred by its margins between
+   8 px from each side, so that on a phone it can take the whole width (a transform would halve it) */
+.xp-toast { position: absolute; top: 8px; left: 8px; right: 8px; margin: 0 auto; width: fit-content; display: flex; align-items: center; gap: 6px;
+  box-sizing: border-box; min-height: 36px; padding: 3px 4px 3px 10px; max-width: min(640px, calc(100% - 16px)); overflow-wrap: anywhere; z-index: 15; }
+.xp-toast-error { color: var(--fail); border-color: var(--fail); }
+.xp-toast-close[hidden] { display: none; }
+.xp-progress { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-family: var(--mono); color: var(--muted);
+  white-space: nowrap; pointer-events: none; }
+/* the opening of a long link in the background: where the toast would be, with its cancel button */
+.xp-opening { position: absolute; top: 52px; left: 8px; right: 8px; margin: 0 auto; width: fit-content; display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 13px; white-space: nowrap; max-width: calc(100% - 16px); z-index: 15; }
+.xp-opening[hidden] { display: none; }
+
+/* popovers of the page */
+.xp-open { display: flex; flex-direction: column; width: 320px; max-width: 100%; }
+.xp-open textarea { width: 100%; min-height: 5.5em; font-size: 12px; word-break: break-all; resize: vertical; }
+/* the error of a paste, under the popover's buttons */
+.xp-open-error { margin: 6px 0 0; color: var(--fail); font-size: 12px; overflow-wrap: anywhere; }
+.xp-open-error[hidden] { display: none; }
+.xp-gear { display: flex; flex-direction: column; gap: 2px; }
+.xp-switch { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 6px; border: 0; background: transparent;
+  font-size: 13px; color: var(--text); text-align: left; border-radius: 6px; white-space: nowrap; }
+.xp-switch:hover { background: var(--btn); }
+.xp-switch-box { width: 14px; height: 14px; border: 1px solid var(--muted); border-radius: 3px; flex: 0 0 auto; }
+.xp-switch[aria-checked="true"] .xp-switch-box { background: var(--select); border-color: var(--select);
+  box-shadow: inset 0 0 0 2px var(--panel); }
+.xp-details { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; width: 340px; max-width: 100%; }
+.xp-details p { margin: 0; }
+/* the Explorer's details: as wide as the longest line (no wrap), up to the page's width less its margins (the
+   popover's own maxWidth), only then a line wraps */
+.popover.xp-pop-fit { max-width: none; }
+.xp-pop-fit .xp-details { width: max-content; }
+.xp-details .bignum { font-size: 12px; margin: 0; }
+.xp-reasons { margin: 0; padding-left: 18px; }
+/* the phone's sheet of x and d: wide enough for the short form of a long number in each field */
+.xp-sheet { width: 300px; max-width: calc(100vw - 16px); }
+.xp-sheet .xp-form { flex-direction: column; align-items: stretch; gap: 6px; }
+.xp-sheet .xp-field input { width: 100%; }
+.xp-sheet .xp-field { width: 100%; }
+
+/* phone: the inputs move behind one "x, d" button, the chip spans the width, the legend sits above it */
+@media (max-width: 640px) {
+  .xp-tl > .xp-form { display: none; }
+  .xp-xd { display: inline-flex; align-items: center; }
+  .xp-chip { left: 8px; right: 8px; }
+  .xp-chip > .xp-chip-sep { margin-left: auto; }
+  .xp-bl { bottom: 52px; }
+  .xp-progress { bottom: 96px; }
+  .xp-readout { max-width: calc(100vw - 40px); }
+}

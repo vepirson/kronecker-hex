@@ -1,0 +1,96 @@
+<p>This section proves the "if" half of Theorem 1, with $x,d>0$ as the Remark after it says. Let $S$ be a shape whose cells of region type $\pm1$ form an admissible set $V$, and let $Z$ be the set of its cells of region type $0$. We may assume $S$ non-empty, since the empty shape is packed into every $(x,d)$. Let $n$ and $m$ count the rows and the columns that $S$ spans: $n=j_{\max}-j_{\min}+1$ and $m=i_{\max}-i_{\min}+1$, where $j$ and $i$ run over the row and column indices of the cells $(i,j)$ of $S$. So two cells of $S$ differ by less than $n$ in $j$ and by less than $m$ in $i$. Fix an integer</p>
+$$B\ge\max\{m^{2}4^{m},\ n\}.$$
+<p>Since $m^{2}4^{m}\ge m$ and $m^{2}4^{m}\ge4$, every prime $q>B$ is odd and larger than $m$ and than $n$. This gives the remark that steps 1 to 4 use.</p>
+<p><b>Separation.</b> Whatever $d$ is, a prime $q>B$ divides at most one of the numbers $d+j$ over the rows $j$ of $S$. Indeed, if $q$ divided $d+j$ and $d+j'$ with $j\ne j'$, it would divide $j-j'$, but $0\lt\lvert j-j'\rvert\lt n\le B\lt q$.</p>
+<p>The proof has four steps: small primes, row primes, one row, packing rows. Each step requires congruences on $d$ or on $x$, and until they are solved $(x,d)$ stands for any pair that satisfies all the congruences required so far: what a step proves holds for every such pair. Step 2 shows that such $d$ exist and fixes one of them, step 4 shows that the $x$ exist. The one external ingredient comes first.</p>
+
+<h3>Every sign pattern occurs</h3>
+<p>Let $q$ be an odd prime and $\lambda$ the Legendre symbol modulo $q$. The one external ingredient is Weil's bound for character sums:</p>
+<div class="proof-theorem">
+<p><b>Lemma 4 (Weil).</b> For distinct $w_1,\dots,w_s\in\mathbb F_q$, $s\ge1$,</p>
+$$\Bigl|\sum_{r\in\mathbb F_q}\lambda\bigl((r+w_1)\cdots(r+w_s)\bigr)\Bigr|\le(s-1)\sqrt q.$$
+</div>
+<p>This is the classical bound for a multiplicative character of $\mathbb F_q$ of order $2$ and a polynomial with $s$ distinct roots that is not a constant times a square: the sum over $r$ of the character of its value at $r$ is at most $(s-1)\sqrt q$ in absolute value (see for instance the chapter on character sums in Lidl and Niederreiter, <i>Finite Fields</i>). A product of distinct linear factors, as here, meets the hypothesis.</p>
+<div class="proof-theorem">
+<p><b>Lemma 5 (patterns modulo a prime).</b> Let $m\ge1$, let $w_1,\dots,w_m$ be distinct modulo the odd prime $q$, let $\delta\in\{\pm1\}^{m}$, and let $A$ be the number of $r\in\mathbb F_q$ with $\lambda(r+w_t)=\delta_t$ for every $t$. Then</p>
+$$A\ \ge\ \frac{q}{2^{m}}-\frac m2\sqrt q-\frac m2 .$$
+<p>If $q\ge m^{2}4^{m}$, then $A\ge\frac m2(\sqrt q-1)>0$: every sign pattern occurs. The same holds for any $s\le m$ offsets, since $s^{2}4^{s}\le m^{2}4^{m}$.</p>
+</div>
+<p><i>Proof.</i> For $r$ with all $r+w_t\ne0$ the product $\prod_t\frac{1+\delta_t\lambda(r+w_t)}2$ is $1$ if $r$ is counted and $0$ otherwise. For each of the $m$ remaining $r$ exactly one factor equals $\frac12$, since the $w_t$ are distinct, and the product lies in $\{0,\frac12\}$. Hence</p>
+$$A\ \ge\ \sum_{r}\prod_{t=1}^{m}\frac{1+\delta_t\lambda(r+w_t)}2-\frac m2
+=2^{-m}\sum_{T\subseteq\{1,\dots,m\}}\Bigl(\prod_{t\in T}\delta_t\Bigr)\sum_r\lambda\Bigl(\prod_{t\in T}(r+w_t)\Bigr)-\frac m2 .$$
+<p>The term $T=\emptyset$ contributes $q$. By Lemma 4 a non-empty $T$ contributes at most $(\lvert T\rvert-1)\sqrt q$ in absolute value, and $\sum_{T\ne\emptyset}(\lvert T\rvert-1)=m2^{m-1}-2^{m}+1\le m2^{m-1}$. So $A\ge q2^{-m}-\frac m2\sqrt q-\frac m2$. If $\sqrt q\ge m2^{m}$, then $q2^{-m}\ge m\sqrt q$ and $A\ge\frac m2(\sqrt q-1)>0$. $\blacksquare$</p>
+<p>The same two estimates bound $A$ from above: the sum over $r$ is at least $A$, because every product is non-negative and equals $1$ at the counted $r$, and it is at most $q2^{-m}+\frac m2\sqrt q$. So every count lies between $q2^{-m}-\frac m2\sqrt q-\frac m2$ and $q2^{-m}+\frac m2\sqrt q$.</p>
+<p>The constant $m^{2}4^{m}$ is generous: for $m=2,3,4,5$ consecutive cells a direct count shows that every sign pattern occurs for every prime from $7$, $19$, $59$, $197$ on (by Lemma 5 above $m^{2}4^{m}$, and by counting below it), while the prime just below misses a pattern.</p>
+<p class="proof-figcap"><b>Figure A.</b> Counts of the $2^{k}$ sign patterns of $\left(\frac{r+t}{q}\right)$, $t=0,\dots,k-1$, for $k$ consecutive offsets (the $m$ of Lemma 5), against $q/2^{k}$ (dashed) and the band of Lemma 5 (shaded). A cross marks a missing pattern.</p>
+<div class="proof-figure" data-figure="weil"></div>
+
+<h3>Step 1. Small primes</h3>
+<p>For each prime $p\le B$ choose a class $(a_p,b_p)$ modulo $p$ that contains no cell of $V$. It exists because $V$ is admissible. Require</p>
+$$x\equiv-a_p,\qquad d\equiv-b_p\pmod p\qquad\text{for every prime }p\le B.$$
+<p>For $p=2$ also fix $x$ modulo $8$: choose $X_8\in\{0,\dots,7\}$ with $X_8\equiv-a_2\pmod 2$ and require $x\equiv X_8\pmod 8$. With $M=8\prod_{3\le p\le B}p$ these conditions on $x$ say, by the Chinese remainder theorem, that $x\equiv X\pmod M$ for one residue $X$.</p>
+<ul>
+<li>(1a) A cell $(i,j)$ of $S$ in the class $(a_p,b_p)$ of some prime $p\le B$ has $x+i\equiv i-a_p\equiv0$ and $d+j\equiv j-b_p\equiv0\pmod p$. So $p$ divides both coordinates, and $K(x+i,d+j)=0$ by Fact 2. The class contains no cell of $V$, so the region type of this cell is $0$, as wanted.</li>
+<li>(1b) For a cell $(i,j)$ of $V$, no prime $p\le B$ divides both $x+i$ and $d+j$: it would give $i\equiv-x\equiv a_p$ and $j\equiv-d\equiv b_p\pmod p$, a cell of $V$ in the class $(a_p,b_p)$.</li>
+</ul>
+<p><b>Private primes.</b> Let $E$ be the set of cells of $Z$ that lie in none of these classes. For every cell $z=(i_z,j_z)$ of $E$ choose its own prime $q_z>B$, different primes for different cells, and require</p>
+$$x\equiv-i_z,\qquad d\equiv-j_z\pmod{q_z}.$$
+<p>Then $q_z\mid x+i_z$ and $q_z\mid d+j_z$, so $K(x+i_z,d+j_z)=0$ by Fact 2. Every cell of $Z$ therefore gets the region type $0$: by (1a) if it lies in a class, by its private prime if it lies in $E$.</p>
+<ul>
+<li>(1c) A private prime $q_z$ divides both $x+i$ and $d+j$ for no cell $(i,j)$ of $V$. If $q_z\mid d+j$, then $j=j_z$ by Separation, since $q_z$ also divides $d+j_z$. Then $i\ne i_z$, because $(i,j)\in V$ and $z\in Z$ are two different cells of the row $j_z$, and $x+i\equiv i-i_z\pmod{q_z}$ with $0\lt\lvert i-i_z\rvert\lt m\lt q_z$. So $q_z\nmid x+i$.</li>
+</ul>
+
+<h3>Step 2. Row primes</h3>
+<p>For every row $j$ of $S$ choose its own prime $q_j>B$, different primes for different rows and different from every private prime $q_z$, and require $d\equiv q_j-j\pmod{q_j^{2}}$. Then $d+j\equiv q_j\pmod{q_j^{2}}$, that is $q_j\mid d+j$ and $q_j^{2}\nmid d+j$. With step 1, all the conditions on $d$ are</p>
+$$\text{(D)}\qquad d\equiv-b_p\pmod p,\qquad d\equiv-j_z\pmod{q_z},\qquad d\equiv q_j-j\pmod{q_j^{2}},$$
+<p>for every prime $p\le B$, every cell $z\in E$ and every row $j$ of $S$. The moduli are pairwise coprime, because the primes $p\le B$, the $q_z$ and the $q_j$ are pairwise different: the $q_z$ and the $q_j$ exceed $B$ and were chosen different from each other. By the Chinese remainder theorem, (D) is one residue class modulo $\prod_{p\le B}p\cdot\prod_{z\in E}q_z\cdot\prod_jq_j^{2}$, and it contains infinitely many $d\ge1$ with $d+j\ge1$ for every row $j$ of $S$. Fix one of them. For every row $j$ of $S$ write</p>
+$$d+j=u_jq_jc_j,$$
+<p>where $u_j$ is the largest divisor of $d+j$ whose prime factors are all at most $B$. This defines a positive integer $c_j$: the prime $q_j>B$ divides $d+j$ and not $u_j$, so it divides $(d+j)/u_j$. The factor $c_j$ has these properties.</p>
+<ul>
+<li>Every prime factor of $c_j$ is larger than $B$, since a prime $p\le B$ dividing $c_j$ would make $pu_j$ a larger divisor of $d+j$ with prime factors at most $B$. In particular $c_j$ is odd.</li>
+<li>$q_j$ does not divide $c_j$, because $q_j^{2}\nmid d+j$.</li>
+<li>A prime factor of $c_j$ divides $d+j$, so by Separation it divides no $d+j'$ with $j'\ne j$. It is therefore not the row prime of another row, not a prime factor of the $c_{j'}$ of another row, and not the private prime of a cell of another row.</li>
+<li>The private prime $q_z$ of every cell $z\in E$ of row $j$ divides $c_j$: it divides $d+j$, it is larger than $B$, and it is not $q_j$.</li>
+<li>Beyond these, $c_j$ may have further prime factors, not known in advance, and every prime factor may divide $c_j$ more than once. Write $c_j=\prod_qq^{e_q}$ over the prime factors $q$ of $c_j$ ($c_j=1$ is possible).</li>
+</ul>
+
+<h3>Step 3. One row</h3>
+<p>Fix a row $j$ of $S$ and let $w_1\lt\dots\lt w_s$ be the column indices of the cells of $V$ in this row. They lie in at most $m$ consecutive integers, so $s\le m$, and $0\lt\lvert w_t-w_{t'}\rvert\lt m$ for $t\ne t'$. This step chooses $x$ modulo every prime factor of $c_j$ and modulo $q_j$, so that every cell $(w_t,j)$ gets the region type $\varepsilon(w_t,j)$.</p>
+<p><b>The cofactor.</b> For every prime factor $q$ of $c_j$ choose a residue $\rho_q$ modulo $q$ with</p>
+$$\rho_q+w_t\not\equiv0\pmod q\qquad(t=1,\dots,s),$$
+<p>and require $x\equiv\rho_q\pmod q$. If $q=q_z$ is the private prime of a cell $z\in E$ of row $j$, step 1 already requires $x\equiv-i_z\pmod{q_z}$, and we take $\rho_q=-i_z$. It satisfies the display, as in (1c): $w_t-i_z\not\equiv0\pmod{q_z}$ because $0\lt\lvert w_t-i_z\rvert\lt m\lt q_z$. There is no conflict, since different cells have different private primes. Every other prime factor $q$ of $c_j$ is free, and the $s\le m\lt q$ residues $-w_t$ leave at least one residue $\rho_q$ modulo $q$. For every $t$, Fact 4 then gives</p>
+$$\tau_t:=J(x+w_t,c_j)=\prod_q\left(\frac{\rho_q+w_t}{q}\right)^{e_q}\in\{\pm1\}.$$
+<p>Here Fact 4 writes $J(x+w_t,c_j)$ as the product of the powers $\left(\frac{x+w_t}{q}\right)^{e_q}$. Each Legendre symbol $\left(\frac{x+w_t}{q}\right)$ depends only on $x$ modulo $q$, that is on $\rho_q$, and it is $\pm1$ by the choice of $\rho_q$. The multiplicities $e_q$ only raise these signs to powers. So $\tau_t$ is a known sign: it depends only on $d$ and on the residues $\rho_q$, not on any other residue of $x$.</p>
+<p><b>The small part.</b> Put $\sigma_t:=K(x+w_t,u_j)$. A prime factor $p$ of $u_j$ is at most $B$ and divides $d+j$, so by (1b) it does not divide $x+w_t$. By the definition of the symbol in section 1, $K(x+w_t,u_j)=\prod_pK(x+w_t,p)^{e_p}$ over the prime powers $p^{e_p}$ exactly dividing $u_j$, where $K(x+w_t,p)$ is the Legendre symbol for odd $p$ and the value $K(x+w_t,2)$ of section 1 for $p=2$. Every factor is $\pm1$: for odd $p$ because $p\nmid x+w_t$, and for $p=2$ because $x+w_t$ is then odd. Hence $\sigma_t\in\{\pm1\}$, and by Fact 3 it depends only on $u_j$ and on $x$ modulo $M$, that is on $d$ and on the residue $X$ of step 1. This is what $x$ modulo $8$ is for: in a row with $d+j$ even, $K(x+w_t,2)$ is $+1$ or $-1$ as $X_8+w_t$ is $\pm1$ or $\pm3$ modulo $8$.</p>
+<p><b>The row prime.</b> Put $\delta_t:=\varepsilon(w_t,j)\sigma_t\tau_t\in\{\pm1\}$. The prime $q_j$ is odd with $q_j>B\ge m^{2}4^{m}$, and the offsets $w_1,\dots,w_s$ are distinct modulo $q_j$, because their differences are non-zero and smaller than $m\lt q_j$. By Lemma 5 with $s\le m$ offsets, some residue $r_j$ modulo $q_j$ has</p>
+$$\left(\frac{r_j+w_t}{q_j}\right)=\delta_t\qquad(t=1,\dots,s).$$
+<p>If $s=0$, any residue $r_j$ will do. Require $x\equiv r_j\pmod{q_j}$. The signs $\sigma_t$ and $\tau_t$ were fixed before $r_j$ was chosen, and they do not depend on $x$ modulo $q_j$, so this choice does not change them.</p>
+
+<h3>Step 4. Packing rows</h3>
+<p>Step 3, done for every row $j$ of $S$, gives the conditions</p>
+$$x\equiv X\pmod M,\qquad x\equiv r_j\pmod{q_j},\qquad x\equiv\rho_q\pmod q\ \text{ for }q\mid c_j,$$
+<p>over all rows $j$ of $S$ and all prime factors $q$ of $c_j$. They contain the conditions of step 1 on $x$, since the private prime of a cell of $E$ is a prime factor of the $c_j$ of its row. The moduli are pairwise coprime. The prime factors of $M$ are at most $B$, and the other moduli are primes larger than $B$. Within a row, $q_j$ is not a prime factor of $c_j$, because $q_j^{2}\nmid d+j$. Across rows, $q_j$ and the prime factors of $c_j$ divide $d+j$, and a prime larger than $B$ divides $d+j$ for one row only, by Separation, because two rows differ by less than $n\le B$. So the Chinese remainder theorem gives one residue class of $x$ modulo $M\prod_j\bigl(q_j\prod_{q\mid c_j}q\bigr)$, and it contains infinitely many $x>0$.</p>
+<p><i>Verification.</i> Let $x>0$ lie in this class. The cells of $Z$ have region type $0$ by step 1. A cell of $V$ is a cell $(w_t,j)$ of step 3 for its row $j$. Since $u_j$, $q_j$, $c_j$ are positive and $q_j$, $c_j$ are odd, Fact 1 and Fact 4 give</p>
+$$K(x+w_t,d+j)=K(x+w_t,u_j)\left(\frac{x+w_t}{q_j}\right)J(x+w_t,c_j)=\sigma_t\delta_t\tau_t=\varepsilon(w_t,j),$$
+<p>with $\left(\frac{x+w_t}{q_j}\right)=\left(\frac{r_j+w_t}{q_j}\right)=\delta_t$ and $\sigma_t^{2}=\tau_t^{2}=1$. So $S$ is packed into $(x,d)$. Each of the infinitely many $d$ of step 2 gives infinitely many $x$, all with $x,d>0$. This proves Theorem 1. $\blacksquare$</p>
+<p>The adjacency of the grid plays no role in Theorem 1: it is a statement about the array $\left(\frac xd\right)$ and holds verbatim for the square picture of the symbol.</p>
+
+<div class="proof-aside">
+<p><b>How the computed examples do it.</b> In this aside $B$ is the program's $B=\max(n,m,7)$, with $n$ and $m$ the rows and columns of the window $S\cup N(S)$, not the $B$ of the proof above, and $q_1\lt q_2$ are the two primes of the row in focus, not the row primes of rows $1$ and $2$. The site's construction of a region of region type $\varepsilon\in\{+1,-1\}$ (the Algorithm page, and figure B below) packs $S$ together with its neighbours and follows the same plan with two changes. First, it prescribes region type $0$ only on the neighbours of $S$ that the small primes already make $0$, and region type $-\varepsilon$ on the other neighbours. A connected set of cells of region type $\varepsilon$ whose neighbours have region type $0$ or $-\varepsilon$ is still a region, and now every cell of region type $0$ lies in a class: no private prime is needed. The cells of region type $\pm1$ of the packed shape miss $(a_p,b_p)$ for $p\le B$ by construction, and for $p>B\ge m$ they miss a class because they span fewer than $p$ columns, so Theorem 1 applies with the same classes. For a prime $p\le B$ with a residue modulo $p$ that no column index of the window has, it only fixes $x$ modulo $p$ so that $p$ divides no $x+i$, and then nothing is needed from $d$ modulo $p$. Second, every row $j$ with prescribed signs gets two primes $q_1\lt q_2$ larger than $B$, different for different rows, with $d\equiv-j\pmod{q_1q_2}$ and $q_1^{2},q_2^{2}\nmid d+j$ (a candidate $d$ that fails this is skipped). Write $d+j=u_jq_1q_2c_j$ with $u_j$ the part of $d+j$ made of primes $\le B$.</p>
+<div class="proof-theorem">
+<p><b>Lemma 6 (the row factorises).</b> If $d+j\ge1$, $x\equiv r_1\pmod{q_1}$, $x\equiv r_2\pmod{q_2}$ and $x\equiv R\pmod{c_j}$, then for every cell $(i,j)$ of the row</p>
+$$K(x+i,\ d+j)=K(x+i,u_j)\cdot\left(\frac{r_1+i}{q_1}\right)\left(\frac{r_2+i}{q_2}\right)\cdot J(R+i,\ c_j).$$
+</div>
+<p><i>Proof.</i> Fact 1 applied to $d+j=u_j\cdot q_1\cdot q_2\cdot c_j$, then Fact 4 for the three odd factors, each symbol depending only on the residue of $x+i$ modulo its factor. $\blacksquare$ The first factor is fixed by the small primes (Fact 3), and it is $0$ exactly at the cells that a small prime makes $0$, since a prime $p\le B$ divides $u_j$ exactly when it divides $d+j$.</p>
+<p>The program first fixes $R$ with $\gcd(R+i,c_j)=1$ at the prescribed cells of the row. Such an $R$ exists: every prime factor $q$ of $c_j$ exceeds $B$, which is at least the number of columns, so the prescribed cells exclude fewer than $q$ residues modulo $q$, and the Chinese remainder theorem combines one allowed residue for each prime factor. The Jacobi symbols $J(R+i,c_j)$ are then $\pm1$, and they are computed without factoring $c_j$. What remains is to find $r_1,r_2$ whose two vectors of Legendre symbols on the prescribed cells multiply to the wanted region types times the two known factors along the row. The program tabulates the sign vectors of all residues modulo $q_1$ and modulo $q_2$, sorts one table and looks up the other. If there is no match, it tries another $R$, and then another $d$. Its row primes are not required to reach $m^{2}4^{m}$, so the existence of a match is not covered by the proof above, and the program does not rely on it: every output is checked by recomputing every cell of the window and by a flood fill of the region. The existence of the region itself is Theorem 1.</p>
+</div>
+<p class="proof-figcap"><b>Figure B.</b> The shape $S_{2}^{\pm1}$ as a region of region type $+1$ (green), built when this page opens. Click a cell for the four factors of Lemma 6.</p>
+<div class="proof-figure" data-figure="factors"></div>
+
+<h3>Proof of Corollary 2</h3>
+<p>The "only if" halves are the Proposition of the previous section. For the "if" halves:</p>
+<ul>
+<li>(a) Of region type $\varepsilon\in\{+1,-1\}$: if $S$ is admissible, take the shape with region type $\varepsilon$ on $S$ and $0$ on its neighbours. Its cells of region type $\pm1$ form $S$, so by Theorem 1 it is packed into infinitely many $(x,d)$.</li>
+<li>(b) Of region type $0$: if $N(S)$ is admissible, take the shape with region type $0$ on $S$ and $+1$ on $N(S)$. Its cells of region type $\pm1$ form $N(S)$, so Theorem 1 applies again.</li>
+</ul>
+<p>The region is then $S$. At each of these $(x,d)$ the cells $(x+i,d+j)$ with $(i,j)\in S$ are connected and have the wanted region type, and every neighbour of them has another region type. A connected set that contains them and some other cell contains a cell outside them adjacent to one of them, that is a neighbour, so it is not of one region type. Hence they form a region. It is a translate of $S$, translation keeps adjacency, so it has the genus of $S$. $\blacksquare$</p>

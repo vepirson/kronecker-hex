@@ -1,0 +1,2 @@
+# Keep every file byte for byte on checkout: the test fixtures are listed by sha256.
+* -text

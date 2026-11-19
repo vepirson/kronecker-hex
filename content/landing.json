@@ -1,0 +1,10 @@
+{
+  "sentence": "Every genus $g \\ge 0$ exists for each region type $\\left(\\frac{x}{d}\\right)\\in\\{-1,0,+1\\}$ of the cells $(x, d)$ of the hexagonal grid, the proof is constructive, and more generally an algorithm can construct shapes which are not obstructed by divisibility.",
+  "picture": { "token": "genus100_green", "title": "genus 100, built from its token and drawn in your browser" },
+  "links": [
+    { "href": "#/explore", "text": "Explore" },
+    { "href": "#/algorithm", "text": "Algorithm" },
+    { "href": "#/proof", "text": "Proof" },
+    { "href": "#/gallery", "text": "Gallery" }
+  ]
+}

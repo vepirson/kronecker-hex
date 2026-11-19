@@ -1,0 +1,31 @@
+<p>Every cell $(x,d)\in\mathbb Z^{2}$ of the hexagonal grid has the <i>region type</i> $K(x,d)=\left(\frac xd\right)\in\{-1,0,+1\}$, the Kronecker symbol, drawn blue for $0$, green for $+1$, red for $-1$. The six neighbours of $(x,d)$ are $(x\pm1,d)$, $(x,d\pm1)$, $(x+1,d+1)$ and $(x-1,d-1)$. Every construction on this page has $d>0$, and there the symbol reads as follows: if $d=2^{e}\prod_{p\ \mathrm{odd}}p^{e_{p}}$, then</p>
+$$K(x,d)=K(x,2)^{e}\prod_{p}\left(\frac xp\right)^{e_{p}},$$
+$$K(x,2)=\begin{cases}0&x\text{ even,}\\+1&x\equiv\pm1\pmod 8,\\-1&x\equiv\pm3\pmod 8,\end{cases}$$
+<p>where $\left(\frac xp\right)$ is the Legendre symbol, $0$ when $p\mid x$. For the other $d$: $K(x,0)=1$ when $x=\pm1$, else $0$, and for $d<0$, $K(x,d)=K(x,-1)K(x,-d)$ with $K(x,-1)=-1$ exactly when $x<0$, else $+1$. Only Fact 2 is used for $d\le0$, in the necessity half. Four facts follow from the definition.</p>
+<ul class="proof-facts-list">
+<li><b>Fact 1.</b> $K(x,d_{1}d_{2})=K(x,d_{1})K(x,d_{2})$ for $d_{1},d_{2}>0$.</li>
+<li><b>Fact 2.</b> $K(x,d)=0$ if and only if $\gcd(x,d)\ne1$. This holds for all integers $x,d$, with $\gcd(x,0)=\lvert x\rvert$ and $\gcd(0,0)=0$.</li>
+<li><b>Fact 3.</b> If every prime factor of $u>0$ is at most $B$, then $K(x,u)$ depends only on $x\bmod 8$ and on $x\bmod p$ for the odd primes $p\le B$.</li>
+<li><b>Fact 4.</b> If $m>0$ is odd, then $K(x,m)=J(x,m)$ is the Jacobi symbol. It depends only on $x\bmod m$ and equals $\prod_{q}\left(\frac xq\right)^{e_{q}}$ over the prime powers $q^{e_{q}}$ exactly dividing $m$.</li>
+</ul>
+<p><b>Shapes.</b> A cell $(i,j)$ is the offset of the point $(x+i,d+j)$ from a base point $(x,d)$, and the cells with the same $j$ form the row $d+j$. A <i>shape</i> $S$ is a finite set of cells, each with a region type $\varepsilon(i,j)\in\{-1,0,+1\}$. The shape $S$ is <i>packed into</i> $(x,d)$ if $K(x+i,d+j)=\varepsilon(i,j)$ at every cell $(i,j)$ of $S$. A shape <i>of region type</i> $\varepsilon$ has all of its cells of region type $\varepsilon$.</p>
+<p><b>Regions and genus.</b> A <i>region</i> is a maximal connected set of cells of the same region type, and its <i>area</i> is its number of cells. For a finite set $S$ of cells, its <i>neighbours</i> are the cells outside $S$ that are adjacent to a cell of $S$, and $N(S)$ is the set of them. The <i>genus</i> of a finite connected set $S$ is $1-\chi(S)$, where $\chi(S)$ is the number of cells minus the number of adjacent pairs plus the number of triples of mutually adjacent cells. It equals the number of bounded connected components of the complement of $S$ (with the same adjacency). This is standard: at most three hexagons meet at a point and two hexagons either share an edge or are disjoint, so by the nerve lemma the union of the closed hexagons of $S$ has Euler characteristic $\chi(S)$, and a compact connected polyhedron in the plane has Euler characteristic $1$ minus the number of bounded components of its complement. The interiors of two complementary cells lie in the same component of the plane minus the union exactly when they are joined by a chain of complementary cells sharing edges, so these components are the components of the complementary cells. The proofs below count those components, and the figures of sections 4 and 5 compute both numbers.</p>
+<p><b>Admissible sets.</b> A finite set $V\subset\mathbb Z^{2}$ is <i>admissible</i>, that is not obstructed by divisibility, if for every prime $p$ it misses at least one residue class of $(\mathbb Z/p)^{2}$, that is, some $(a,b)$ has no cell $(i,j)\in V$ with $i\equiv a$ and $j\equiv b\pmod p$. Admissibility does not change under translation, and only the primes with $p^{2}\le\lvert V\rvert$ need to be checked, since fewer cells than classes always miss a class.</p>
+<div class="proof-theorem">
+<p><b>Theorem 1 (the packing criterion).</b> A shape $S$ is packed into infinitely many $(x,d)$ if and only if its cells of region type $\pm1$ form an admissible set.</p>
+</div>
+<p><i>Remark.</i> One base point $(x,d)$ into which $S$ is packed already forces the condition (the next section), and when the condition holds, $S$ is packed into infinitely many $(x,d)$ with $x,d>0$ (the section after it).</p>
+<div class="proof-theorem">
+<p><b>Corollary 2 (which shapes are regions).</b> A finite connected set $S$ of cells is a region for infinitely many $(x,d)$, that is, the cells $(x+i,d+j)$ with $(i,j)\in S$ form a region:</p>
+<ul>
+<li>(a) of region type $\varepsilon\in\{+1,-1\}$ if and only if $S$ is admissible (it is then packed with region type $\varepsilon$ on $S$ and $0$ on its neighbours),</li>
+<li>(b) of region type $0$ if and only if its neighbours $N(S)$ form an admissible set.</li>
+</ul>
+<p>The region is then $S$, so it has the genus of $S$. In (a) and in (b), one such $(x,d)$ already forces the condition.</p>
+</div>
+<div class="proof-theorem">
+<p><b>Theorem 3 (every genus).</b> For every integer $g\ge0$ and each of the three region types there are infinitely many finite regions of that region type with genus exactly $g$. For $g\ge1$ they can be taken to be the shape $S_{g}^{\pm1}$ (region type $+1$ or $-1$, area $10g-4$) and the shape $S_{g}^{0}$ (region type $0$, area $2D+g+3$ with $D\in\{3g,3g+1\}$ even), each placed at infinitely many base points $(x,d)$, both defined in the section on every genus.</p>
+</div>
+<p>The condition of Theorem 1 is on the cells of region type $\pm1$ only: the cells of region type $0$ are free. For a region of type $\pm1$ these cells are the region itself, for a region of type $0$ they are its neighbours. The next section proves that the condition is necessary, the one after it that it is sufficient, and sections 4 and 5 build the shapes.</p>
+<p class="proof-figcap">The colouring near $(x,d)$. Click a cell for its region.</p>
+<div class="proof-figure" data-figure="colouring"></div>

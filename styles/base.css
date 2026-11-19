@@ -1,0 +1,204 @@
+/* Base styles of the site: theme and palette variables, the page shell (header, main), the focus rule, buttons, and the
+   classes of the shared widgets (big numbers, stepper, pass badge) and of the hex canvas.
+   Theme: data-theme="light" | "dark" on <html>, or none for the light theme (the system's preference is not read).
+   Palette: data-palette="colourblind"
+   on <html> for the red-green safe fills, none for the standard fills.
+   Hex canvas: --canvas is the background and the thin lines between the hexagons, --outline the boundary of a shown
+   region. A soft cell is its fill mixed with --soft-to at the fraction --soft (light: white at 0.45, dark: dimmed
+   toward the dark canvas at 0.55). The colour-blind fills are the same in both themes (that rule comes last). */
+
+:root {
+  --bg: #f6f6f3; --panel: #ffffff; --text: #1d1d1b; --muted: #5d5d58; --border: #d4d4cc;
+  --canvas: #ffffff; --outline: #111111; --select: #7a3cc8; --pending: #c9c9c2; --empty: #e6e6df;
+  --pass: #1f7a3a; --fail: #b3261e; --btn: #ecece6; --link: #5a2ca0;
+  --fill-red: #d9534f; --fill-blue: #4a7fd4; --fill-green: #3fa45b;
+  --soft-to: #ffffff; --soft: 0.45;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #17181a; --panel: #212226; --text: #e6e6e1; --muted: #a2a29c; --border: #3a3b40;
+  --canvas: #14151a; --outline: #000000; --select: #e0b3ff; --pending: #3a3b40; --empty: #26272b;
+  --pass: #6fd28d; --fail: #ff8a80; --btn: #2c2d32; --link: #d2a8ff;
+  --fill-red: #e2605b; --fill-blue: #5b8fe6; --fill-green: #4bb86b;
+  --soft-to: #14151a; --soft: 0.55;
+  color-scheme: dark;
+}
+:root[data-palette="colourblind"] {
+  --fill-red: #d55e00; --fill-blue: #56b4e9; --fill-green: #009e73;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column;
+}
+a { color: var(--link); }
+code, pre, .mono { font-family: var(--mono); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0; }
+
+/* ---------- shell: the header (40 px at every width, one line, all pages) ----------
+   --header-h is its height, the one place it is set: the app layout's main area and the Gallery's pinned title row
+   read it. The header stays pinned at the top of the window on the pages that scroll (doc layout), on an opaque
+   background above the page's own pinned rows and popovers (z-index 30; the header has no menu of its own). */
+:root { --header-h: 40px; }
+.site-header {
+  flex: 0 0 var(--header-h); height: var(--header-h); display: flex; flex-wrap: nowrap; align-items: center; gap: 18px; min-width: 0;
+  padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1;
+  position: sticky; top: 0; z-index: 30;
+}
+.site-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--text);
+  text-decoration: none; white-space: nowrap; }
+.site-logo { flex: 0 0 auto; }
+.site-nav { display: flex; flex-wrap: nowrap; gap: 14px; min-width: 0; }
+.site-nav a { display: inline-flex; align-items: center; gap: 5px; color: var(--text); text-decoration: none; white-space: nowrap;
+  padding: 4px 0; text-underline-offset: 5px; }
+.site-nav a .icon { flex: 0 0 auto; }
+.site-nav a:hover .site-nav-label { text-decoration: underline; text-decoration-color: var(--border); }
+.site-nav a[aria-current="page"] .site-nav-label { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-color: var(--text); }
+.site-switches { display: flex; gap: 2px; margin-left: auto; flex: 0 0 auto; }
+
+/* ---------- the two layouts, chosen per route (data-layout on <body>, set by the router) ---------- */
+.site-main { flex: 1 0 auto; width: 100%; min-width: 0; margin: 0 auto; padding: 16px; max-width: 1100px; }
+
+/* app: the page fills exactly the height under the header and never scrolls */
+body[data-layout="app"] { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+body[data-layout="app"] .site-main {
+  flex: 0 0 auto; max-width: none; margin: 0; padding: 0; position: relative; overflow: hidden;
+  height: calc(100vh - var(--header-h)); height: calc(100dvh - var(--header-h));
+}
+
+/* doc: one centred column of at most 1100 px with 16 px side padding */
+body[data-layout="doc"] .site-main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+.page-title { font-size: 22px; margin: 4px 0 8px; }
+.page-lead { color: var(--muted); margin: 0 0 12px; max-width: 46em; }
+.page-error { color: var(--fail); }
+
+@media (max-width: 640px) {
+  .site-header { padding: 0 8px; gap: 10px; }
+  .site-nav { gap: 10px; }
+  .site-main { padding: 10px; }
+  .hexview { height: 55vh; }
+}
+@media (max-width: 420px) {
+  .site-name-text { display: none; }
+}
+/* below 600 px the header entries show their icons only (the label stays for screen readers, the title is the tooltip) */
+@media (max-width: 599px) {
+  .site-nav { gap: 16px; }
+  .site-nav-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+    white-space: nowrap; border: 0; }
+  .site-nav a { padding: 6px 2px; }
+  .site-nav a[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--text); }
+}
+
+/* ---------- the one focus rule of the site ----------
+   One ring for every control, drawn only while the last input was the keyboard: the router marks <html> with
+   data-input="pointer" at a pointer press and "keyboard" at Tab (router.mjs), so a click followed by Escape or an
+   arrow key never rings. A text field shows the ring whenever it holds the caret. A hex canvas shows a thin neutral
+   frame inside its edge instead (.hexview canvas below). */
+:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+:root[data-input="pointer"] :focus-visible:not(input, textarea) { outline: none; }
+
+/* ---------- icon buttons, floating panels, popovers, toast ---------- */
+.icon-btn { width: 28px; height: 28px; min-width: 28px; padding: 0; display: inline-flex; align-items: center;
+  justify-content: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text);
+  font-size: 13px; line-height: 1; flex: 0 0 auto; }
+.icon-btn:hover:not(:disabled) { background: var(--btn); filter: none; }
+.icon-btn[aria-pressed="true"] { color: var(--select); border-color: var(--select); }
+.icon-btn .icon { display: block; }
+.text-btn { height: 28px; padding: 0 8px; font-size: 13px; line-height: 1; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); flex: 0 0 auto; }
+.float { background: var(--panel); background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 8px; font-size: 13px; line-height: 1.3; max-width: 360px; }
+.popover { position: absolute; z-index: 20; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 8px; font-size: 13px; line-height: 1.35; max-width: 360px; overflow: auto; overscroll-behavior: contain;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); }
+.popover[hidden] { display: none; }
+/* the legend of the region types (widgets/legend.mjs): a square in the present palette's fill before each type */
+.legend { display: inline-flex; align-items: center; gap: 12px; font-size: 13px; }
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-sq { display: inline-block; width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto; }
+.legend-sq-green { background: var(--fill-green); }
+.legend-sq-red { background: var(--fill-red); }
+.legend-sq-blue { background: var(--fill-blue); }
+/* the view controls of a canvas (widgets/view_controls.mjs): zoom in, zoom out, fit in one column at its top right */
+.view-controls { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; flex-direction: column; gap: 2px; padding: 3px; }
+
+/* ---------- controls ---------- */
+button, .btn {
+  font: inherit; font-size: 14px; padding: 4px 10px; background: var(--btn); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+}
+button:hover:not(:disabled), .btn:hover { filter: brightness(0.95); }
+button:disabled { opacity: 0.5; cursor: default; }
+button[aria-pressed="true"] { border-color: var(--select); }
+input[type="text"], textarea, select, input[type="number"] {
+  font: 14px var(--mono); padding: 4px 6px; background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; max-width: 100%;
+}
+
+/* ---------- hex canvas ---------- */
+.hexview { position: relative; width: 100%; height: 60vh; min-height: 240px; background: var(--canvas);
+  border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.hexview canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; outline: none; }
+.hexview canvas[data-dragging] { cursor: grabbing; }
+.hexview canvas:focus-visible { outline: 1px solid var(--muted); outline-offset: -1px; }
+canvas.hexwindow { display: block; max-width: 100%; height: auto; }
+
+/* ---------- big number ---------- */
+/* the copy button first (a column of buttons when several follow each other), the texts aligned after it */
+.bignum { font-size: 13px; margin: 2px 0; min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 6px;
+  align-items: start; }
+.bignum-text { min-width: 0; padding-top: 5px; }
+.bignum-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.bignum-label { font-weight: 600; }
+.bignum-value { font-family: var(--mono); word-break: break-all; }
+.bignum-sha { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+
+/* ---------- stepper ---------- */
+.stepper { display: flex; flex-direction: column; gap: 6px; }
+.stepper-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stepper-pos { color: var(--muted); font-size: 13px; }
+.stepper-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.stepper-list button { font-size: 13px; }
+.stepper-list button[aria-current="step"] { border-color: var(--select); font-weight: 600; }
+
+/* ---------- timeline (a bar of the stepper's positions: one segment per step, filled up to the current item) ---------- */
+.timeline { height: 20px; display: flex; align-items: center; cursor: pointer; touch-action: none; border-radius: 3px; }
+.timeline-track { flex: 1 1 auto; display: flex; gap: 2px; height: 12px; min-width: 0; }
+.timeline-seg { position: relative; flex: 1 1 0; height: 12px; background: var(--btn); border-radius: 2px; overflow: hidden; }
+.timeline-seg[data-enabled="false"] { opacity: 0.4; }
+.timeline-fill, .timeline-now { position: absolute; top: 0; bottom: 0; left: 0; background: var(--select); }
+.timeline-now { transform-origin: left center; transform: scaleX(1); }
+.timeline-now.timeline-run { animation: timeline-grow var(--timeline-ms, 900ms) linear forwards; }
+@keyframes timeline-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .timeline-now.timeline-run { animation: none; transform: scaleX(1); }
+}
+/* the ruler: short minor ticks where the items start (a third of the track, the outline colour at reduced strength),
+   the tick of the current item full height and stronger, the label of the position under the pointer above the bar */
+.timeline { position: relative; }
+.timeline-ticks { position: absolute; inset: 0; pointer-events: none; }
+.timeline-tick { position: absolute; top: 4px; height: 4px; width: 1px; background: var(--outline); opacity: 0.5; }
+.timeline-tick-now { top: 0; height: 12px; width: 2px; margin-left: -1px; background: var(--text); opacity: 1; }
+.timeline-tick[hidden] { display: none; }
+.timeline-label { position: absolute; bottom: 100%; transform: translateX(-50%); z-index: 25; padding: 1px 6px; font-size: 12px;
+  line-height: 16px; white-space: nowrap; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.timeline-label[hidden] { display: none; }
+
+/* ---------- pass badge ---------- */
+.badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-weight: 700; font-size: 13px;
+  color: var(--panel); background: var(--muted); }
+.badge.pass { background: var(--pass); }
+.badge.fail { background: var(--fail); }
+.badge-box ul { margin: 4px 0; padding-left: 20px; font-size: 13px; }
+.badge-box .badge-warnings { color: var(--muted); }
+/* the page bar of the canvas pages (widgets/page_bar.mjs): eye, pencil, flask in one row, the present page's greyed */
+.page-bar { display: inline-flex; align-items: center; gap: 1px; }
+.page-bar > [hidden] { display: none; }

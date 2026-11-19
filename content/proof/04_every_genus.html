@@ -1,0 +1,33 @@
+<p>By Corollary 2 it is enough to write down, for every $g$, a connected admissible shape of genus $g$ (for the region types $+1$ and $-1$), and a connected shape of genus $g$ with an admissible neighbour set (for the region type $0$). Offsets are written $(i,j)$, column $i$, row $j$ (the row $d+j$).</p>
+<div class="proof-theorem">
+<p><b>Definition.</b> For $g\ge1$ let</p>
+$$S_{g}^{\pm1}=\{(1,j):0\le j\le 6g-5\}\ \cup\ \bigcup_{k=0}^{g-1}\{(0,6k+1),\ (0,6k-1),\ (-1,6k),\ (-1,6k-1)\}.$$
+</div>
+<div class="proof-theorem">
+<p><b>Lemma 7.</b> For $g\ge1$, $S_{g}^{\pm1}$ is connected, has $10g-4$ cells, is admissible, and has genus exactly $g$.</p>
+</div>
+<p><i>Proof.</i> <i>Count.</i> The spine $\{(1,j)\}$ has $6g-4$ cells and each $k$ adds four more, all distinct. <i>Connected.</i> The spine is a path. For each $k$: $(0,6k+1)$ is adjacent to $(1,6k+1)$, $(0,6k-1)$ to $(1,6k)$, $(-1,6k)$ to $(0,6k+1)$, and $(-1,6k-1)$ to $(0,6k-1)$, where $(1,6k)$ and $(1,6k+1)$ lie on the spine because $0\le6k$ and $6k+1\le6g-5$.</p>
+<p><i>Admissible.</i> No cell has both coordinates even: the cells have $i=\pm1$, or $i=0$ and $j=6k\pm1$ odd. So $S_{g}^{\pm1}$ misses the class $(0,0)$ modulo $2$. For the same reason no cell has both coordinates divisible by $3$, so it misses $(0,0)$ modulo $3$. For $p\ge5$ every cell has $i\in\{-1,0,1\}$, so $S_{g}^{\pm1}$ misses every class $(2,b)$ modulo $p$. This holds for every $g$ at once.</p>
+<p><i>Holes.</i> For each $k$ the cell $(0,6k)$ is not in $S_{g}^{\pm1}$, and its six neighbours $(1,6k)$, $(-1,6k)$, $(0,6k+1)$, $(0,6k-1)$, $(1,6k+1)$, $(-1,6k-1)$ are. So $\{(0,6k)\}$ is a bounded component of the complement, and there are $g$ of them.</p>
+<p><i>No other bounded component.</i> All cells with $i\ge2$ or $i\le-2$ are in the complement and lie in unbounded components. A complementary cell $(1,j)$ is adjacent to $(2,j)$, and a complementary cell $(-1,j)$ is adjacent to $(-2,j)$. A complementary cell $(0,j)$ other than the holes has $j\notin\{6k-1,6k,6k+1\}$ for $0\le k\le g-1$, and its neighbour $(-1,j)$ lies in $S_{g}^{\pm1}$ only if $j\in\{6k,6k-1\}$, so $(-1,j)$ is complementary and leads to $(-2,j)$. $\blacksquare$</p>
+<div class="proof-theorem">
+<p><b>Definition.</b> For $g\ge1$ let $D=3g$ if $g$ is even and $D=3g+1$ if $g$ is odd (so $D$ is even and $3g\le D\le3g+1$), and</p>
+$$S_{g}^{0}=\{(0,j),(2,j):0\le j\le D\}\ \cup\ \{(1,3k):0\le k\le g\},$$
+<p>two rails joined by $g+1$ rungs.</p>
+</div>
+<p>The answer to the question writes both shapes turned: its $S_{g}^{\pm1}$ is the set $S_{g}^{\pm1}$ above under $(i,j)\mapsto(j,i-1)$, and its $S_{g}^{0}$ is the set $S_{g}^{0}$ above under $(i,j)\mapsto(i-j+D,i)$. Both maps are symmetries of the grid: they keep the six neighbour directions, so connectedness, genus, neighbour sets and admissibility do not change.</p>
+<div class="proof-theorem">
+<p><b>Lemma 8.</b> For $g\ge1$, $S_{g}^{0}$ is connected, has $2D+g+3$ cells, has genus exactly $g$, and $N(S_{g}^{0})$ is admissible.</p>
+</div>
+<p><i>Proof.</i> <i>Count.</i> Two rails of $D+1$ cells and $g+1$ rungs in column $1$, all distinct: $2(D+1)+g+1=2D+g+3$. <i>Connected.</i> The rails are paths, the rung $(1,0)$ is adjacent to $(0,0)$ and $(2,0)$, and every rung $(1,3k)$ is adjacent to $(0,3k)$.</p>
+<p><i>The neighbour set.</i> A rail cell $(0,j)$ has the neighbours $(\pm1,j)$, $(0,j\pm1)$, $(1,j+1)$, $(-1,j-1)$, and a rail cell $(2,j)$ has $(3,j)$, $(1,j)$, $(2,j\pm1)$, $(3,j+1)$, $(1,j-1)$. The neighbours of a rung $(1,3k)$ are $(0,3k)$, $(2,3k)$, $(1,3k\pm1)$, $(2,3k+1)$, $(0,3k-1)$: rail cells or cells of column $1$, except $(0,-1)$ for $k=0$ and $(2,D+1)$ for $k=g$ with $g$ even, both of which appear in the last set below. Therefore</p>
+$$N(S_{g}^{0})=\{(-1,j):-1\le j\le D\}\cup\{(3,j):0\le j\le D+1\}\cup\{(1,j):-1\le j\le D+1,\ (1,j)\text{ not a rung}\}\cup\{(0,-1),(0,D+1),(2,-1),(2,D+1)\}.$$
+<p><i>Admissible.</i> Modulo $2$: the cells of $N(S_{g}^{0})$ with even $i$ are $(0,-1)$, $(0,D+1)$, $(2,-1)$, $(2,D+1)$, all with odd $j$ because $D$ is even. So the class $(0,0)$ is missed. Modulo $3$: the columns are $-1,0,1,2,3$, so $i\equiv1$ only for $i=1$. The multiples of $3$ in $[-1,D+1]$ are the $3k$ with $0\le k\le g$ (since $D+1\le3g+2$), exactly the rungs, which are not in $N(S_{g}^{0})$. So the class $(1,0)$ is missed. Modulo $5$: the cells with $i\equiv0$ are $(0,-1)$ and $(0,D+1)$ only, so every class $(0,b)$ with $b\not\equiv-1$ and $b\not\equiv D+1$ is missed. Modulo $p\ge7$: no cell has $i\equiv4$. Again this holds for every $g$ at once.</p>
+<p><i>Holes.</i> For $0\le k\le g-1$ let $H_k=\{(1,3k+1),(1,3k+2)\}$. The neighbours of $(1,3k+1)$ are the rail cells $(2,3k+1)$, $(0,3k+1)$, $(2,3k+2)$, $(0,3k)$, the rung $(1,3k)$ and $(1,3k+2)$. The neighbours of $(1,3k+2)$ are the rail cells $(2,3k+2)$, $(0,3k+2)$, $(2,3k+3)$, $(0,3k+1)$, the rung $(1,3k+3)$ and $(1,3k+1)$. All rail indices are at most $3g\le D$. So each $H_k$ is a bounded component of the complement.</p>
+<p><i>No other bounded component.</i> Complementary cells with $i\le-1$ or $i\ge3$ lie in unbounded components. A complementary $(0,j)$ has $j\lt0$ or $j>D$ and is adjacent to $(-1,j)$. A complementary $(2,j)$ is adjacent to $(3,j)$. A complementary $(1,j)$ outside the $H_k$ has $j\le-1$, and then its neighbour $(0,j-1)$ is complementary, or $j\ge3g+1$, and then its neighbour $(2,j+1)$ is complementary because $j+1\ge3g+2>D$. $\blacksquare$</p>
+<div class="proof-theorem">
+<p><b>Lemma 9 (genus 0).</b> A single cell is admissible and has genus $0$. For the single cell $(0,0)$, the neighbour set, the ring of six cells around $(0,0)$, is admissible: it misses the class $(0,0)$ modulo $2$ and modulo $3$, and has fewer than $p^{2}$ cells for $p\ge5$.</p>
+</div>
+<p><i>Proof of Theorem 3.</i> For $g\ge1$: Lemma 7 with Corollary 2(a) gives infinitely many base points $(x,d)$ at which $S_{g}^{\pm1}$ is a region of region type $+1$, and infinitely many at which it is a region of region type $-1$, and Lemma 8 with Corollary 2(b) gives infinitely many at which $S_{g}^{0}$ is a region of region type $0$. For $g=0$: Lemma 9 with the same corollary, applied to a single cell. The genus of each region is that of its shape. $\blacksquare$</p>
+<p class="proof-figcap">The shape with its neighbours, numbers computed from the cells. The residue test runs the primes with $p^{2}$ at most the number of cells, the proofs cover all primes and all $g$.</p>
+<div class="proof-figure" data-figure="genus"></div>
