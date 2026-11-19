@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SECTIONS, PAGE_SIZE, sectionById, sectionPages, sectionCards, sectionSlots, pageName, familyShape, familyInput, statedOf,
+  SECTIONS, PAGE_SIZE, CARD_PAGE_SIZE, sectionById, sectionPages, sectionCards, sectionSlots, pageName, familyShape, familyInput, statedOf,
   familyMembers, storedMembers,
 } from "../../src/ui/gallery/model.mjs";
 import { pagesOf, pageCount, clampPage } from "../../src/ui/widgets/pager.mjs";
@@ -33,11 +33,14 @@ test("six sections in page order, the families with their members, generators an
   assert.deepEqual(familyMembers(sectionById("c00")), [2, 4, 6, 8, 10]);
   assert.deepEqual(familyMembers(sectionById("s")), Array.from({ length: 25 }, (_, k) => k + 1));
   assert.deepEqual(sectionById("featured").colours, null);
-  // (its cards lie inside |x|, |d| <= 4000, found_regions.test.mjs, the title states the round bound 5000)
-  assert.equal(sectionById("found").title, "Symmetric with $|x|, |d| \\le 5000$");
+  // (one card per shape up to the 12 symmetries of the census of |x|, |d| <= 5000, found_regions.test.mjs)
+  assert.equal(sectionById("found").title, "Unique Symmetric with $|x|, |d| \\le 5000$");
   // the order of the region types everywhere: +1, -1, 0
   assert.deepEqual(sectionById("found").colours, [1, -1, 0]);
   assert.equal(PAGE_SIZE, 5);
+  assert.equal(sectionById("found").pageSize, CARD_PAGE_SIZE);
+  assert.equal(CARD_PAGE_SIZE, 15);
+  assert.equal(sectionById("featured").pageSize, undefined);
 });
 
 test("every section has its title only: no sentence, ASCII, no semicolon, formulas typeset, no TeX source outside them", () => {

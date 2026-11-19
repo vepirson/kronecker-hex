@@ -111,9 +111,16 @@ test("checkGallery finds broken references", () => {
   assert.ok(p.some((s) => /natural_examples/.test(s)));
   assert.ok(p.some((s) => /shown twice/.test(s)));
   assert.ok(p.some((s) => /symmetry must be/.test(s)));
-  assert.ok(p.some((s) => /no description text/.test(s)));
+  assert.ok(p.some((s) => /found card 1: the description text must be ASCII without a semicolon/.test(s)));
   assert.ok(p.some((s) => /region type 2 is not one of the switch/.test(s)));
   assert.ok(checkGallery({ ...ok, found: [] }, { tokens: { t: "x" }, naturals: [nat] }).some((s) => /found: no cards/.test(s)));
+  // a card of found needs no description text and no entry in data/natural_examples.json (its flood fill checks it),
+  // a featured natural card still needs its entry, and an entry with other numbers is still a problem
+  const plain = { ...ok, found: [{ kind: "natural", x: "7", d: "-9", colour: 1, genus: 1, area: 6, symmetry: 12 }] };
+  assert.deepEqual(checkGallery(plain, { tokens: { t: "x" }, naturals: [] }), []);
+  const lonely = { ...plain, featured: [{ kind: "natural", ...nat }] };
+  assert.deepEqual(checkGallery(lonely, { naturals: [] }), ["featured card 0: (1, 2) not in data/natural_examples.json"]);
+  assert.ok(checkGallery(plain, { tokens: { t: "x" }, naturals: [{ x: "7", d: "-9", colour: 1, genus: 1, area: 7 }] }).some((s) => /differ from data\/natural_examples/.test(s)));
 });
 
 test("README.md: a section Credits with the link to the question, no licence line", () => {

@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { checkGallery, SECTIONS, sectionCards, statedOf, familyInput, familyMembers, cardHref, cardRef, typeText } from "../../src/ui/gallery/model.mjs";
+import { checkGallery, SECTIONS, CARD_PAGE_SIZE, sectionCards, sectionPages, sectionSlots, pageName, statedOf, familyInput, familyMembers, cardHref, cardRef, typeText } from "../../src/ui/gallery/model.mjs";
 import { openToken } from "../../src/formats/token.mjs";
 import { verifyWitness, makeWitness } from "../../src/formats/witness.mjs";
 import { floodFill } from "../../src/core/regions.mjs";
@@ -29,7 +29,7 @@ test("data/gallery.json is well formed, every reference resolves, no card twice 
   assert.deepEqual(checkGallery(gallery, { tokens, witnessFiles, naturals }), []);
   assert.deepEqual(Object.keys(gallery).sort(), ["featured", "format", "found", "note"]);
   assert.equal(gallery.featured.length, 5);
-  assert.equal(gallery.found.length, 30);
+  assert.equal(gallery.found.length, 751 + 727 + 184);
   // the family members are distinct from each other and from the stored cards (other kinds)
   const refs = cards.map(cardRef);
   for (const s of SECTIONS.filter((x) => x.kind === "family")) {
@@ -93,8 +93,9 @@ test("natural examples: flood fill gives the stated colour, area and genus", () 
     assert.equal(f.genus, n.genus, `${n.x}, ${n.d}`);
     if (n.area > 1000) console.log(`natural (${n.x}, ${n.d}): genus ${f.genus}, area ${f.area}, ${Date.now() - t0} ms`);
   }
-  // every natural card of the page is one of them (checkGallery compares its numbers)
-  for (const c of cards.filter((k) => k.kind === "natural")) assert.ok(naturals.some((n) => n.x === c.x && n.d === c.d), `${c.x}, ${c.d}`);
+  // every natural card of the page outside the section found is one of them (checkGallery compares its numbers), the
+  // cards of found are checked by their own flood fill (found_regions.test.mjs)
+  for (const c of cards.filter((k) => k.kind === "natural" && k.section !== "found")) assert.ok(naturals.some((n) => n.x === c.x && n.d === c.d), `${c.x}, ${c.d}`);
   console.log(`natural examples: ${naturals.length} filled, all equal`);
 });
 
@@ -130,10 +131,51 @@ test("family members built by the construction: the first and the last member of
   console.log(lines.join("\n"));
 });
 
-test("the cards of a card section: all of them, or those of the chosen type", () => {
+test("the cards of a card section: all of them, or those of the chosen type, the section found in pages of 15 per type", () => {
   const found = SECTIONS.find((s) => s.id === "found");
-  // the types in the switch order +1, -1, 0: ten cards each
-  assert.deepEqual(found.colours.map((c) => sectionCards(found, gallery, { colour: c }).length), [10, 10, 10]);
   const featured = SECTIONS.find((s) => s.id === "featured");
   assert.equal(sectionCards(featured, gallery).length, 5);
+  assert.deepEqual(sectionPages(featured, gallery), []);
+  // the types in the switch order +1, -1, 0: every shape of the census, 751, 727 and 184 cards (no cut)
+  const byType = found.colours.map((c) => gallery.found.filter((x) => x.colour === c));
+  assert.deepEqual(byType.map((l) => l.length), [751, 727, 184]);
+  // pages of 15, their count from the number of cards: 51 (the last with one card), 49 (the last with 7) and 13 (the
+  // last with 4)
+  assert.deepEqual(found.colours.map((c) => sectionPages(found, gallery, c).length), byType.map((l) => Math.ceil(l.length / CARD_PAGE_SIZE)));
+  assert.deepEqual(found.colours.map((c) => sectionPages(found, gallery, c).length), [51, 49, 13]);
+  assert.deepEqual([[50, 1], [48, -1], [12, 0]].map(([page, colour]) => sectionCards(found, gallery, { page, colour }).length), [1, 7, 4]);
+  assert.equal(sectionSlots(found, gallery), CARD_PAGE_SIZE);
+  for (const [k, c] of found.colours.entries()) {
+    const pages = sectionPages(found, gallery, c);
+    const shown = [];
+    for (const p of pages) {
+      const cs = sectionCards(found, gallery, { page: p.index, colour: c });
+      assert.equal(cs.length, p.index < pages.length - 1 ? CARD_PAGE_SIZE : byType[k].length - CARD_PAGE_SIZE * (pages.length - 1));
+      assert.ok(cs.every((x) => x.colour === c));
+      shown.push(...cs);
+    }
+    // every card of the type once, in the order of the file
+    assert.deepEqual(shown, byType[k]);
+    assert.throws(() => sectionCards(found, gallery, { page: pages.length, colour: c }), { code: "bad_format" });
+  }
+  assert.equal(pageName(found, sectionPages(found, gallery, 1)[1]), "Shapes 16 to 30");
+  assert.equal(pageName(found, sectionPages(found, gallery, -1)[48]), "Shapes 721 to 727");
+  assert.equal(pageName(found, sectionPages(found, gallery, 1)[50]), "Shape 751");
+  // ordered within each type by area ascending (smallest first), then genus ascending, then symmetry descending
+  for (const l of byType) {
+    for (let i = 1; i < l.length; i++) {
+      const a = [l[i - 1].area, l[i - 1].genus, l[i - 1].symmetry];
+      const b = [l[i].area, l[i].genus, l[i].symmetry];
+      assert.ok(a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && a[2] >= b[2]))), `${l[i].x}, ${l[i].d}`);
+    }
+  }
+  // no cut: each type starts with its single cell (symmetry 12) and ends with its largest shape
+  assert.deepEqual(byType.map((l) => [l[0].area, l[0].symmetry]), [[1, 12], [1, 12], [1, 12]]);
+  assert.deepEqual(byType.map((l) => l[l.length - 1].area), [24, 21, 47]);
+  assert.ok(gallery.found.some((x) => x.x === "-1" && x.d === "-3" && x.colour === 1));
+  // the page buttons (up to 51) wrap into further rows when they do not fit the width
+  assert.match(fs.readFileSync(abs("styles/gallery.css"), "utf8"), /\.gal-pages \{[^}]*flex-wrap: wrap/);
+  // the section with no cards of a type: no page, nothing shown
+  assert.deepEqual(sectionPages(found, { found: [] }, 1), []);
+  assert.deepEqual(sectionCards(found, { found: [] }, { page: 0, colour: 1 }), []);
 });

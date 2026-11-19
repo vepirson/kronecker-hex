@@ -35,7 +35,8 @@
 .gal-sw:last-child { border-radius: 0 4px 4px 0; }
 .gal-sw + .gal-sw { border-left: 0; }
 .gal-sw[aria-pressed="true"] { border-color: var(--border); background: var(--text); color: var(--bg); }
-/* the page buttons of a family: they wrap inside their row on a narrow screen */
+/* the page buttons of a section: they wrap into further rows when they do not fit the width (a family's five on a
+   narrow screen, the up to 51 pages of the section found on any screen) */
 .gal-pages { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
 .pager-btn { min-width: 30px; height: 26px; padding: 0 6px; font-size: 13px; font-weight: 400; border-radius: 4px; font-variant-numeric: tabular-nums; }
 .pager-btn[aria-current="page"] { background: var(--text); color: var(--bg); border-color: var(--border); }

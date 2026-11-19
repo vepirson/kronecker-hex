@@ -1,6 +1,8 @@
 // The Gallery page: the title with a row of buttons, one per section (a press scrolls to the section and moves the
 // focus to its heading), pinned at the top, then the sections of SECTIONS (src/ui/gallery/model.mjs) in order, each
-// with its title and a grid of square cards. A card section shows cards of data/gallery.json, a family section the
+// with its title and a grid of square cards. A card section shows cards of data/gallery.json (the section found one
+// page of CARD_PAGE_SIZE cards of its present type, the page buttons made again when the type changes, since each
+// type has its own number of pages, the buttons wrapping into further rows), a family section the
 // members of one page (PAGE_SIZE cards, page buttons of widgets/pager.mjs): the first page built in the browser in the
 // construct worker, the others opened from their stored tokens in the same worker (FAMILY_TOKENS_FILE, loadFamilyCard
 // of gallery/memory.mjs).
@@ -348,12 +350,34 @@ export function mount(root, ctx = {}) {
     fillSection(sec);
   }
 
+  // a type change keeps the page, as in a family (page 1 when the new type has fewer pages). A card section with pages
+  // counts them per type, so its page buttons are made again.
   function setColour(id, colour) {
     const sec = st.sections.find((s) => s.def.id === id);
     if (!sec || !sec.switch || colour === sec.colour || !sec.def.colours.includes(colour)) return;
     sec.colour = colour;
+    if (sec.def.kind === "cards" && sec.def.pageSize) {
+      sec.pages = sectionPages(sec.def, st.gallery, colour);
+      sec.page = clampPage(sec.page, Math.max(1, sec.pages.length));
+      placePager(sec);
+    }
     remember();
     fillSection(sec);
+  }
+
+  // placePager(sec): the page buttons of a section with more than one page (pageName as tooltip and accessible name),
+  // put before its grid, in place of the old ones when there were some
+  function placePager(sec) {
+    const old = sec.pager ? sec.pager.el : null;
+    sec.pager = null;
+    if (sec.pages.length > 1) {
+      const def = sec.def;
+      sec.pager = createPager({ names: sec.pages.map((p) => pageName(def, p)), current: sec.page, label: "Pages of this section", onSelect: (k) => setPage(def.id, k) });
+      sec.pager.el.classList.add("gal-pages");
+    }
+    if (old && sec.pager) old.replaceWith(sec.pager.el);
+    else if (old) old.remove();
+    else if (sec.pager) sec.grid.before(sec.pager.el);
   }
 
   // ---------- the page ----------
@@ -385,12 +409,13 @@ export function mount(root, ctx = {}) {
     const saved = (ctx.store && ctx.store.get().gallery) || {};
     for (const def of SECTIONS) {
       const keep = saved[def.id] || {};
-      const pages = sectionPages(def);
       const colours = def.colours || [];
+      const colour = colours.includes(keep.colour) ? keep.colour : colours.length ? colours[0] : null;
+      // the pages of a family, or of a card section with pages in its present type
+      const pages = sectionPages(def, st.gallery, colour);
       const sec = {
         def, pages, slots: sectionSlots(def, st.gallery), cards: [], pager: null, switch: null, head: null, jump: null,
-        page: clampPage(keep.page, Math.max(1, pages.length)),
-        colour: colours.includes(keep.colour) ? keep.colour : colours.length ? colours[0] : null,
+        page: clampPage(keep.page, Math.max(1, pages.length)), colour,
       };
       // a title may hold a $...$ formula (the name of a family of shapes), typeset. The heading takes the focus of the
       // section's button of the title row.
@@ -401,15 +426,9 @@ export function mount(root, ctx = {}) {
         sec.switch = typeSwitch({ colours, current: sec.colour, onSelect: (c) => setColour(def.id, c) });
         sec.head.append(sec.switch.el);
       }
-      const parts = [sec.head];
-      if (pages.length > 1) {
-        sec.pager = createPager({ names: pages.map((p) => pageName(def, p)), current: sec.page, label: "Pages of this section", onSelect: (k) => setPage(def.id, k) });
-        sec.pager.el.classList.add("gal-pages");
-        parts.push(sec.pager.el);
-      }
       sec.grid = h("div", { class: "gal-grid" });
-      parts.push(sec.grid);
-      page.append(h("section", { class: "gal-group", dataset: { group: def.id } }, ...parts));
+      page.append(h("section", { class: "gal-group", dataset: { group: def.id } }, sec.head, sec.grid));
+      placePager(sec);
       st.sections.push(sec);
     }
     for (const sec of st.sections) fillSection(sec);

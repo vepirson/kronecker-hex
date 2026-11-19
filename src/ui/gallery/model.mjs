@@ -19,6 +19,9 @@ export const GALLERY_FORMAT = "gallery_v2";
 export const KINDS = Object.freeze(["family", "token", "witness", "natural"]);
 // Cards per page of a family section.
 export const PAGE_SIZE = 5;
+// Cards per page of a card section with pages (the section found: 3 rows of 5 on a wide screen), its pages counted per
+// region type from its cards.
+export const CARD_PAGE_SIZE = 15;
 // The first page of every family is built in the browser, the members of the pages from this index on come from stored
 // tokens (FAMILY_TOKENS_FILE, written by tools/build_family_tokens.mjs).
 export const FIRST_STORED_PAGE = 1;
@@ -47,7 +50,9 @@ function family(id, tex, { shape, seed, param = "genus", from = 1, to, step = 1,
 
 // The sections of the Gallery page, in page order, each with its title only. kind "cards": the cards of
 // data/gallery.json under the key id, with a switch of region types when colours is a list (the cards of the chosen type
-// are shown). kind "family": the members of a family (the first page built in the browser, the others from stored
+// are shown), in pages of pageSize cards when it has one (the pages of each type counted from its own cards: the
+// section found has one card per shape up to the 12 symmetries of the grid and per type, written from the census of
+// the square |x|, |d| <= 5000, smallest first, its pages counted from the cards of each type). kind "family": the members of a family (the first page built in the browser, the others from stored
 // tokens), in pages of PAGE_SIZE, with a switch when colours has two entries. A title may hold a $...$ formula (typeset
 // by the page). The family C_0^0 is the solid hexagon hexDisc(R) as a region of type 0: its ring of neighbours misses a
 // class modulo 2 only for an even R, so its members are the even radii, one page of them (the cells grow fast).
@@ -57,7 +62,7 @@ export const SECTIONS = Object.freeze([
   family("s0", "S_{g}^{0}", { shape: shapeZ, seed: seedZ, to: 25, colours: [0] }),
   family("c", "C_{g}^{\\pm1}", { shape: shapeC, seed: seedC, to: 25, colours: [1, -1] }),
   family("c00", "C_{0}^{0}", { shape: hexDisc, seed: () => [0, 0], param: "radius", from: 2, to: 10, step: 2, genusOf: () => 0, colours: [0] }),
-  Object.freeze({ id: "found", kind: "cards", title: "Symmetric with $|x|, |d| \\le 5000$", colours: Object.freeze([1, -1, 0]) }),
+  Object.freeze({ id: "found", kind: "cards", title: "Unique Symmetric with $|x|, |d| \\le 5000$", colours: Object.freeze([1, -1, 0]), pageSize: CARD_PAGE_SIZE }),
 ]);
 
 // sectionById(id) is the entry of SECTIONS with that id (undefined for none).
@@ -101,9 +106,20 @@ export function familyKey(card) {
   return `${card.section}:${card.member}:${card.colour}`;
 }
 
-// sectionPages(section) is the list of pages of a family section (pagesOf of the page widget), [] for a card section.
-export function sectionPages(section) {
-  return section.kind === "family" ? pagesOf(section.from, section.to, PAGE_SIZE, section.step) : [];
+// the cards of data/gallery.json of a card section (only those of type colour when the section has a switch)
+function typeCards(section, gallery, colour) {
+  const cards = (gallery && gallery[section.id]) || [];
+  return section.colours ? cards.filter((c) => c.colour === colour) : cards.slice();
+}
+
+// sectionPages(section, gallery, colour) is the list of pages of a section (pagesOf of the page widget): for a family
+// its members cut into pages of PAGE_SIZE, for a card section with a pageSize the positions 1, 2, ... of its cards of
+// type colour in data/gallery.json cut into pages of pageSize ([] when it has none), [] for another card section.
+export function sectionPages(section, gallery = null, colour = null) {
+  if (section.kind === "family") return pagesOf(section.from, section.to, PAGE_SIZE, section.step);
+  if (!section.pageSize) return [];
+  const n = typeCards(section, gallery, colour).length;
+  return n > 0 ? pagesOf(1, n, section.pageSize) : [];
 }
 
 // storedMembers(section) is the list of the members of a family section that come from stored tokens: those of the
@@ -113,33 +129,40 @@ export function storedMembers(section) {
   return first ? familyMembers(section).filter((m) => m >= first.from) : [];
 }
 
-// pageName(section, page) is the tooltip and accessible name of a page button of a family: "Genus 6 to 10", "Radius
-// 12 to 20" (or "Genus 7" for one member).
+// pageName(section, page) is the tooltip and accessible name of a page button: for a family "Genus 6 to 10", "Radius
+// 12 to 20" (or "Genus 7" for one member), for a card section "Shapes 26 to 50" (or "Shape 726" for one card).
 export function pageName(section, page) {
+  if (section.kind !== "family") return page.from === page.to ? `Shape ${page.from}` : `Shapes ${page.from} to ${page.to}`;
   const what = section.param.charAt(0).toUpperCase() + section.param.slice(1);
   return page.from === page.to ? `${what} ${page.from}` : `${what} ${page.from} to ${page.to}`;
 }
 
 // sectionCards(section, gallery, { page, colour }) is the list of cards shown by a section: for a family the members
 // of page `page` in the type colour ({ kind: "family", section, member, colour }), for a card section its cards of
-// data/gallery.json (only those of type colour when the section has a switch).
+// data/gallery.json (only those of type colour when the section has a switch), those of page `page` when it has a
+// pageSize. Throws "bad_format" for a page the section does not have (page 0 of a type without cards is empty).
 export function sectionCards(section, gallery, { page = 0, colour = null } = {}) {
   if (section.kind === "family") {
     const p = sectionPages(section)[page];
     if (!p) throw new CodedError("bad_format", `the section ${section.id} has no page ${page}`);
     return familyMembers(section).filter((m) => m >= p.from && m <= p.to).map((member) => ({ kind: "family", section: section.id, member, colour }));
   }
-  const cards = (gallery && gallery[section.id]) || [];
-  return section.colours ? cards.filter((c) => c.colour === colour) : cards.slice();
+  const cards = typeCards(section, gallery, colour);
+  if (!section.pageSize) return cards;
+  const p = sectionPages(section, gallery, colour)[page];
+  if (!p) {
+    if (page === 0 && cards.length === 0) return [];
+    throw new CodedError("bad_format", `the section ${section.id} has no page ${page} of type ${colour}`);
+  }
+  return cards.slice(p.from - 1, p.to);
 }
 
 // sectionSlots(section, gallery) is the most cards a section shows at once (over its pages and types): its grid keeps
 // that many places so that nothing moves when a page or a type changes.
 export function sectionSlots(section, gallery) {
   if (section.kind === "family") return PAGE_SIZE;
-  const cards = (gallery && gallery[section.id]) || [];
-  if (!section.colours) return cards.length;
-  return Math.max(0, ...section.colours.map((c) => cards.filter((x) => x.colour === c).length));
+  const most = section.colours ? Math.max(0, ...section.colours.map((c) => typeCards(section, gallery, c).length)) : typeCards(section, gallery, null).length;
+  return section.pageSize ? Math.min(section.pageSize, most) : most;
 }
 
 // statedOf(card) is the { genus, area } a card claims: for a family card the genus of its member and the number of
@@ -249,9 +272,11 @@ const isText = (s) => typeof s === "string" && s.length > 0 && /^[\x20-\x7e]+$/.
 // checkGallery(gallery, { tokens, witnessFiles, naturals }) returns the list of problems (strings) of a parsed
 // data/gallery.json: the format GALLERY_FORMAT, a non-empty list of cards for every card section of SECTIONS, every
 // card of kind token, witness or natural with its stated genus and area, its reference resolved (token label in
-// tokens, witness file name in witnessFiles, natural (x, d) in the list naturals with the same colour, genus and area),
-// the type of a card of a section with a switch among its types, a stated symmetry (1 to 12) with a text (ASCII, no
-// semicolon) on every card of the section found, and no card twice on the page. An empty list means well formed.
+// tokens, witness file name in witnessFiles, natural (x, d) in the list naturals with the same colour, genus and area,
+// except a card of the section found: its region is checked by its own flood fill alone, its numbers are compared when
+// it is in the list), the type of a card of a section with a switch among its types, a stated symmetry (1 to 12) on
+// every card of the section found, a description text (optional) ASCII without a semicolon, and no card twice on the
+// page. An empty list means well formed.
 export function checkGallery(gallery, { tokens = {}, witnessFiles = [], naturals = [] } = {}) {
   const out = [];
   if (!gallery || gallery.format !== GALLERY_FORMAT) return [`format is not ${GALLERY_FORMAT}`];
@@ -280,14 +305,13 @@ export function checkGallery(gallery, { tokens = {}, witnessFiles = [], naturals
           continue;
         }
         const n = naturals.find((e) => e.x === c.x && e.d === c.d);
-        if (!n) out.push(`${ct}: (${c.x}, ${c.d}) not in data/natural_examples.json`);
-        else if (n.genus !== c.genus || n.area !== c.area || n.colour !== c.colour) out.push(`${ct}: colour, genus or area differ from data/natural_examples.json`);
+        if (!n) {
+          if (s.id !== "found") out.push(`${ct}: (${c.x}, ${c.d}) not in data/natural_examples.json`);
+        } else if (n.genus !== c.genus || n.area !== c.area || n.colour !== c.colour) out.push(`${ct}: colour, genus or area differ from data/natural_examples.json`);
       }
       if (s.colours && !s.colours.includes(c.colour)) out.push(`${ct}: region type ${c.colour} is not one of the switch`);
-      if (s.id === "found") {
-        if (!Number.isInteger(c.symmetry) || c.symmetry < 1 || c.symmetry > 12) out.push(`${ct}: symmetry must be 1 .. 12`);
-        if (!isText(c.text)) out.push(`${ct}: no description text`);
-      }
+      if (s.id === "found" && (!Number.isInteger(c.symmetry) || c.symmetry < 1 || c.symmetry > 12)) out.push(`${ct}: symmetry must be 1 .. 12`);
+      if (c.text !== undefined && !isText(c.text)) out.push(`${ct}: the description text must be ASCII without a semicolon`);
     }
   }
   return out;
