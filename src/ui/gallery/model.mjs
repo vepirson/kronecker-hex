@@ -7,8 +7,10 @@ import { shapeS, seedS, shapeZ, seedZ, hexDisc } from "../../core/shapes.mjs";
 import { shapeC, seedC } from "../../core/shapes_compact.mjs";
 import { cellKey, compareCells } from "../../core/geometry.mjs";
 import { fittedWindow, nearestCell, planeOf, boundsExtents } from "../../render/hex_canvas.mjs";
+import { kronecker } from "../../core/kronecker.mjs";
+import { polygonCells } from "../../core/polygon.mjs";
 import { pagesOf } from "../widgets/pager.mjs";
-import { explorerTokenHref } from "../actions.mjs";
+import { explorerHref, explorerTokenHref } from "../actions.mjs";
 import { cellsText } from "../editor/editor_state.mjs";
 
 // The format name of data/gallery.json.
@@ -16,7 +18,8 @@ export const GALLERY_FORMAT = "gallery_v2";
 // Card kinds. family: a member of a family of SECTIONS in the type of its section's switch, { kind, section, member,
 // colour } (built in the browser on the first page, else opened from its stored token).
 // token, witness, natural: a card of data/gallery.json (see checkGallery).
-export const KINDS = Object.freeze(["family", "token", "witness", "natural"]);
+// square: a term of a section of kind "squares", { kind, section, n, r, s, text } (squareCard).
+export const KINDS = Object.freeze(["family", "token", "witness", "natural", "square"]);
 // Cards per page of a family section.
 export const PAGE_SIZE = 5;
 // Cards per page of a card section with pages (the section found: 3 rows of 5 on a wide screen), its pages counted per
@@ -38,6 +41,22 @@ export const CROP_CELL = 4;
 // Largest cell size of a card picture.
 export const MAX_CELL = 44;
 
+// The terms of OEIS A052157 shown by the section of kind "squares": a(n) is the least r such that some s with
+// 0 <= s < r has gcd(r - i, s - j) > 1 for all 0 <= i, j < n. In the grid the cell (x, d) is of type 0 exactly when
+// gcd(x, d) > 1, so the cells (r - i, s - j) of a term form an n x n square of type 0 (a rhombus of the grid with n
+// cells on each side, (r, s) its corner of largest x and largest d). r = a(n) and an s of it, decimal strings. a(1) to
+// a(4) are those of the OEIS, a(5) comes from an exhaustive search of every r up to 402063189178. Each card checks in
+// the browser that its n^2 cells are of type 0 (squareFacts).
+export const A052157_TERMS = Object.freeze([
+  { n: 1, r: "2", s: "0" },
+  { n: 2, r: "21", s: "15" },
+  { n: 3, r: "1310", s: "1276" },
+  { n: 4, r: "10199373", s: "7247646" },
+  { n: 5, r: "131487690156", s: "37945747192" },
+].map((t) => Object.freeze(t)));
+// The link of the section's title: the word text of the title is a link to href.
+export const A052157_LINK = Object.freeze({ text: "A052157", href: "https://oeis.org/A052157" });
+
 // A family section: its name (tex, a formula without the $ signs), the generator of its shapes (shape(m), seed(m)) for
 // its members m = from, from + step, ... to, what a member counts (param "genus" or "radius") with the genus of a member
 // (genusOf), and the region types of its switch. The title is the name with the range.
@@ -55,13 +74,16 @@ function family(id, tex, { shape, seed, param = "genus", from = 1, to, step = 1,
 // the square |x|, |d| <= 5000, smallest first, its pages counted from the cards of each type). kind "family": the members of a family (the first page built in the browser, the others from stored
 // tokens), in pages of PAGE_SIZE, with a switch when colours has two entries. A title may hold a $...$ formula (typeset
 // by the page). The family C_0^0 is the solid hexagon hexDisc(R) as a region of type 0: its ring of neighbours misses a
-// class modulo 2 only for an even R, so its members are the even radii, one page of them (the cells grow fast).
+// class modulo 2 only for an even R, so its members are the even radii, one page of them (the cells grow fast). kind
+// "squares": one card per term of its list terms (the n x n squares of A052157_TERMS, squareCard), one page, no
+// switch, its title with the word link.text a link to link.href (the page makes that word an external link).
 export const SECTIONS = Object.freeze([
   Object.freeze({ id: "featured", kind: "cards", title: "Featured", colours: null }),
   family("s", "S_{g}^{\\pm1}", { shape: shapeS, seed: seedS, to: 25, colours: [1, -1] }),
   family("s0", "S_{g}^{0}", { shape: shapeZ, seed: seedZ, to: 25, colours: [0] }),
   family("c", "C_{g}^{\\pm1}", { shape: shapeC, seed: seedC, to: 25, colours: [1, -1] }),
   family("c00", "C_{0}^{0}", { shape: hexDisc, seed: () => [0, 0], param: "radius", from: 2, to: 10, step: 2, genusOf: () => 0, colours: [0] }),
+  Object.freeze({ id: "a052157", kind: "squares", title: "Smallest Rhombus, A052157", link: A052157_LINK, colours: null, terms: A052157_TERMS }),
   Object.freeze({ id: "found", kind: "cards", title: "Unique Symmetric with $|x|, |d| \\le 5000$", colours: Object.freeze([1, -1, 0]), pageSize: CARD_PAGE_SIZE }),
 ]);
 
@@ -142,6 +164,10 @@ export function pageName(section, page) {
 // data/gallery.json (only those of type colour when the section has a switch), those of page `page` when it has a
 // pageSize. Throws "bad_format" for a page the section does not have (page 0 of a type without cards is empty).
 export function sectionCards(section, gallery, { page = 0, colour = null } = {}) {
+  if (section.kind === "squares") {
+    if (page !== 0) throw new CodedError("bad_format", `the section ${section.id} has no page ${page}`);
+    return section.terms.map((t) => squareCard(section.id, t));
+  }
   if (section.kind === "family") {
     const p = sectionPages(section)[page];
     if (!p) throw new CodedError("bad_format", `the section ${section.id} has no page ${page}`);
@@ -161,23 +187,28 @@ export function sectionCards(section, gallery, { page = 0, colour = null } = {})
 // that many places so that nothing moves when a page or a type changes.
 export function sectionSlots(section, gallery) {
   if (section.kind === "family") return PAGE_SIZE;
+  if (section.kind === "squares") return section.terms.length;
   const most = section.colours ? Math.max(0, ...section.colours.map((c) => typeCards(section, gallery, c).length)) : typeCards(section, gallery, null).length;
   return section.pageSize ? Math.min(section.pageSize, most) : most;
 }
 
 // statedOf(card) is the { genus, area } a card claims: for a family card the genus of its member and the number of
-// cells of its shape, for the other kinds the numbers written in the card.
+// cells of its shape, for a square card n^2 cells and no genus (null: it is not a region), for the other kinds the
+// numbers written in the card.
 export function statedOf(card) {
   if (card.kind === "family") {
     return { genus: sectionById(card.section).genusOf(card.member), area: familyShape(card.section, card.member).shape.length };
   }
+  if (card.kind === "square") return { genus: null, area: card.n * card.n };
   return { genus: card.genus, area: card.area };
 }
 
 // cardRef(card) is the reference that identifies a card on the page: "token:<label>", "witness:<file>",
-// "natural:<x>,<d>" or "family:<section>:<member>".
+// "natural:<x>,<d>", "family:<section>:<member>" or "square:<section>:<n>".
 export function cardRef(card) {
   switch (card.kind) {
+    case "square":
+      return `square:${card.section}:${card.n}`;
     case "token":
       return `token:${card.label}`;
     case "witness":
@@ -193,9 +224,11 @@ export function cardRef(card) {
 
 // cardHref(card, token) is the address a card opens: "#/w/<token>" for a token card (and for a family card once its
 // token is known, else null), "#/explore?w=<file>" for a witness file, "#/explore?x=..&d=..&sel=0,0" for a natural
-// region.
+// region, squareHref for a square.
 export function cardHref(card, token = null) {
   switch (card.kind) {
+    case "square":
+      return squareHref(card);
     case "family":
       return token ? explorerTokenHref(token) : null;
     case "token":
@@ -213,8 +246,10 @@ export function cardHref(card, token = null) {
 // captionParts(card, facts) returns the parts of the one caption line of a card from verified facts { genus, area,
 // digits (decimal digits of x0), symmetry }: ["A cells", "genus G", "x N digits"] (cells first, as the Explorer's
 // chip, "1 cell" for one), for a natural region the last part is "(x, d)", and a card that states its symmetry has
-// "symmetry S" before it. A narrow card shows the first two parts only.
+// "symmetry S" before it. A narrow card shows the first two parts only. A square card has its own two parts, in the
+// one line of every card (its s is in the card's tooltip text, not in the caption): ["n x n", "a(n) = r"].
 export function captionParts(card, facts) {
+  if (card.kind === "square") return [`${card.n} x ${card.n}`, `a(${card.n}) = ${card.r}`];
   const parts = [cellsText(facts.area), `genus ${facts.genus}`];
   if (card.symmetry !== undefined) parts.push(`symmetry ${facts.symmetry}`);
   parts.push(card.kind === "natural" ? `(${card.x}, ${card.d})` : `x ${facts.digits} digits`);
@@ -224,6 +259,105 @@ export function captionParts(card, facts) {
 // captionText(card, facts) is the caption line: the parts of captionParts joined by " | ".
 export function captionText(card, facts) {
   return captionParts(card, facts).join(" | ");
+}
+
+// ---------- the squares of a section of kind "squares" ----------
+
+// squareCard(section, term) is the card of a term { n, r, s } of the section: { kind: "square", section, n, r, s,
+// text } (text: the tooltip and accessible description of the card, which cells form the square, with the value of s,
+// which the caption leaves out).
+export function squareCard(section, { n, r, s }) {
+  return { kind: "square", section, n, r, s, text: `cells (a(${n}) - i, s - j) for 0 <= i, j < ${n}, s = ${s}` };
+}
+
+// squareCorners(n) is the corners of the n x n square as offsets from its corner (r, s): [0, 0], [-(n - 1), 0],
+// [-(n - 1), -(n - 1)], [0, -(n - 1)], the one corner [0, 0] for n = 1 (the polygon of the Explorer's address part b).
+export function squareCorners(n) {
+  if (!Number.isInteger(n) || n < 1) throw new CodedError("bad_format", `a square has a side n >= 1, got ${n}`);
+  const m = -(n - 1);
+  return n === 1 ? [[0, 0]] : [[0, 0], [m, 0], [m, m], [0, m]];
+}
+
+// squareZoom(n) is the zoom (pixels per cell) of the Explorer's view of the n x n square, centred on its corner (r, s):
+// 40 at most, and the square reaches at most about 150 pixels from the middle of the view on every side (n - 1/2
+// cells), so that it fits a phone's screen.
+export function squareZoom(n) {
+  return Math.min(40, Math.floor(150 / Math.max(1, n - 0.5)));
+}
+
+// squareOf(card) is { x0, d0 (bigints: r and s), corners (squareCorners), cells (polygonCells of the corners: the
+// offsets of the n^2 cells from (r, s)) } of a square card.
+export function squareOf(card) {
+  const x0 = parseBigIntStrict(String(card.r));
+  const d0 = parseBigIntStrict(String(card.s));
+  if (x0 === null || d0 === null) throw new CodedError("bad_format", "the r and s of a square are integers");
+  const corners = squareCorners(card.n);
+  return { x0, d0, corners, cells: polygonCells(corners) };
+}
+
+// squareHref(card) is the Explorer's address of a square card: its corner (r, s) in the middle at squareZoom(n), the
+// square highlighted by the address part b (its corners as offsets from (r, s)): "#/explore?x=r&d=s&z=Z&b=0,0,...".
+export function squareHref(card) {
+  const b = squareCorners(card.n).map(([i, j]) => `${i},${j}`).join(",");
+  return explorerHref({ x: String(card.r), d: String(card.s), z: String(squareZoom(card.n)), b });
+}
+
+// checkSquares(section) returns the list of problems (strings) of the terms of a section of kind "squares": a
+// non-empty list, the terms n = 1, 2, 3, ... in order, r and s decimal strings with 0 <= s < r, and the polygon of
+// each square holding exactly n^2 cells. (Whether the cells are of type 0 is squareFacts, the card's own check.) An
+// empty list means well formed.
+export function checkSquares(section) {
+  const out = [];
+  const terms = section && section.terms;
+  if (!Array.isArray(terms) || terms.length === 0) return [`${section ? section.id : "?"}: no terms`];
+  terms.forEach((t, k) => {
+    const what = `${section.id} term ${k}`;
+    if (t.n !== k + 1) out.push(`${what}: n is ${t.n}, expected ${k + 1}`);
+    const r = typeof t.r === "string" ? parseBigIntStrict(t.r) : null;
+    const s = typeof t.s === "string" ? parseBigIntStrict(t.s) : null;
+    if (r === null || s === null || String(r) !== t.r || String(s) !== t.s) {
+      out.push(`${what}: r and s must be decimal strings`);
+      return;
+    }
+    if (!(s >= 0n && s < r)) out.push(`${what}: needs 0 <= s < r`);
+    if (Number.isInteger(t.n) && t.n >= 1) {
+      const cells = polygonCells(squareCorners(t.n));
+      if (!cells || cells.length !== t.n * t.n) out.push(`${what}: the square does not hold n^2 cells`);
+    }
+  });
+  return out;
+}
+
+// squareIsRegion(card, fill) is the rule of the pencil and the flask of a square card: true exactly when the flood
+// fill of its corner (r, s) (fill: { complete, cells (offsets from (r, s)) }, the fill and cap of a region card of the
+// grid) is complete AND its cells are exactly the n^2 cells of the square (the square is a whole region), else false.
+export function squareIsRegion(card, fill) {
+  if (!fill || fill.complete !== true || !Array.isArray(fill.cells)) return false;
+  const { cells } = squareOf(card);
+  if (!cells || fill.cells.length !== cells.length) return false;
+  const keys = new Set(cells.map(([i, j]) => cellKey(i, j)));
+  return fill.cells.every(([i, j]) => keys.has(cellKey(i, j)));
+}
+
+// squareSubject(card, fill) is the subject of the actions of a square card (in the terms of regionActions of
+// src/ui/actions.mjs): the region of (r, s) when squareIsRegion (the pencil and the flask open it: it is the square),
+// else { kind: "custom" } (both disabled with the reason NOT_A_REGION, "Not a region"). fill: { complete, cells, colour }
+// or null (the fill failed).
+export function squareSubject(card, fill) {
+  if (squareIsRegion(card, fill)) return { kind: "region", complete: true, cells: fill.cells, seed: [0, 0], colour: fill.colour, token: null };
+  return { kind: "custom", complete: true, cells: squareOf(card).cells, seed: null, colour: 0, token: null };
+}
+
+// squareFacts(card) is the check of a square card, computed here: { pass, reasons, genus (null), area (the number of
+// its cells), digits (null) }. It passes when the cells of its polygon are exactly n^2 and the Kronecker symbol of
+// every cell (r - i, s - j) is 0 (gcd > 1), each a reason otherwise.
+export function squareFacts(card) {
+  const { x0, d0, cells } = squareOf(card);
+  const reasons = [];
+  if (!cells || cells.length !== card.n * card.n) reasons.push(`${cells ? cells.length : 0} cells, stated ${card.n * card.n}`);
+  const bad = (cells || []).filter(([i, j]) => kronecker(x0 + BigInt(i), d0 + BigInt(j)) !== 0).length;
+  if (bad > 0) reasons.push(`${bad} of the cells not of type 0`);
+  return { pass: reasons.length === 0, reasons, genus: null, area: cells ? cells.length : 0, digits: null };
 }
 
 // The 12 symmetries of the grid that fix (0, 0): r^k and r^k s for k = 0 .. 5, with the turn r(i, j) = (i - j, i) by

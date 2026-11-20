@@ -132,9 +132,11 @@ test("the editor's outline, halo only where needed, against every full fill and 
 });
 
 // The interface accent (--select of styles/base.css: focus rings, pressed and current buttons, the timeline) is not a
-// colour of the hex canvas: no module draws with it, except the one overlay chosen by the site's owner, the outline of
-// the Check step of the Algorithm page (ui/pages/lab/step7.mjs), whose contrast tests/lab/check_outline.test.mjs tests.
-const ACCENT_ALLOWED = ["ui/pages/lab/step7.mjs"];
+// colour of the hex canvas: no module draws with it, except the one overlay chosen by the site's owner, accentOutline
+// of render/overlays.mjs (the outline of the Check step of the Algorithm page, verifiedOutline of
+// ui/pages/lab/step7.mjs, and of a custom highlight of the Explorer and the Gallery's squares), whose contrast
+// tests/lab/check_outline.test.mjs tests. That module alone names the accent.
+const ACCENT_ALLOWED = ["render/overlays.mjs"];
 test("no module of the site draws on a canvas in the interface accent colour (but the Check outline)", () => {
   const css = fs.readFileSync(new URL("../../styles/base.css", import.meta.url), "utf8");
   const accents = [...css.matchAll(/--select:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase());

@@ -1,4 +1,4 @@
-// The sections of the Gallery (SECTIONS of src/ui/gallery/model.mjs): six in page order, each with its title only (a
+// The sections of the Gallery (SECTIONS of src/ui/gallery/model.mjs): seven in page order, each with its title only (a
 // title that typesets), the four families with their members and region types, every member a connected shape of the
 // genus of its member with its seed (cheap, no construction), the solid hexagons of C_0^0 only of even radius (the
 // residue test of their ring of neighbours), the pages of five members, and the page widget's model (page count,
@@ -20,9 +20,12 @@ import { splitMath, texToHtml } from "../../src/ui/widgets/math.mjs";
 
 const even = Array.from({ length: 25 }, (_, k) => 2 * k + 2);
 
-test("six sections in page order, the families with their members, generators and region types", () => {
-  assert.deepEqual(SECTIONS.map((s) => s.id), ["featured", "s", "s0", "c", "c00", "found"]);
-  assert.deepEqual(SECTIONS.map((s) => s.kind), ["cards", "family", "family", "family", "family", "cards"]);
+test("seven sections in page order, the families with their members, generators and region types", () => {
+  assert.deepEqual(SECTIONS.map((s) => s.id), ["featured", "s", "s0", "c", "c00", "a052157", "found"]);
+  assert.deepEqual(SECTIONS.map((s) => s.kind), ["cards", "family", "family", "family", "family", "squares", "cards"]);
+  // the squares of A052157 before the symmetric shapes, the owner's title, its word A052157 a link to the OEIS
+  assert.equal(sectionById("a052157").title, "Smallest Rhombus, A052157");
+  assert.deepEqual({ ...sectionById("a052157").link }, { text: "A052157", href: "https://oeis.org/A052157" });
   const fam = Object.fromEntries(SECTIONS.filter((s) => s.kind === "family").map((s) => [s.id, [s.param, s.from, s.to, s.step, s.colours, s.shape, s.title]]));
   assert.deepEqual(fam, {
     s: ["genus", 1, 25, 1, [1, -1], shapeS, "$S_{g}^{\\pm1}$, genus 1 to 25"],
@@ -53,7 +56,8 @@ test("every section has its title only: no sentence, ASCII, no semicolon, formul
       if (p.type === "math") assert.equal(texToHtml(p.tex, false).ok, true, p.tex);
       else assert.equal(/\^\{|_\{|\\pm|\\le|[{}$]/.test(p.value), false, JSON.stringify(p.value));
     }
-    assert.equal(/\b(largest|smallest|nearest|most)\b/i.test(t), false, t);
+    // (the one exception: the owner's own title of the squares of A052157, whose terms are least values by definition)
+    if (s.id !== "a052157") assert.equal(/\b(largest|smallest|nearest|most)\b/i.test(t), false, t);
     assert.equal(/\b(green|red|blue)\b/i.test(t), false, `region types, not colour words: ${t}`);
   }
 });

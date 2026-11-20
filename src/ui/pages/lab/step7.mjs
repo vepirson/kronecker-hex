@@ -5,7 +5,7 @@
 // counting holes, the colour. The canvas shows the real window with the verified rows outlined (verifiedOutline). A
 // tampered result (the tamper tool of the extras) is shown with its own verification.
 
-import { outline, OUTLINE_HALO } from "../../../render/overlays.mjs";
+import { accentOutline, ACCENT_COLOUR_VAR } from "../../../render/overlays.mjs";
 import { useStyles } from "../../dom.mjs";
 import { numsBlock, cellFails, typeText } from "./model.mjs";
 import { STYLES_URL, prose, signStrip, STRIP_TEXT_MAX } from "./step5.mjs";
@@ -13,37 +13,13 @@ import { showReal } from "./step6.mjs";
 
 // The CSS variable of the accent colour (the timeline's progress, the step shown) that the verified rows are
 // outlined in.
-export const VERIFIED_COLOUR_VAR = "--select";
+export const VERIFIED_COLOUR_VAR = ACCENT_COLOUR_VAR;
 
-// accentColour() is the present value of VERIFIED_COLOUR_VAR on the page (read at every frame, so a theme change
-// redraws the line in the new theme).
-const accentColour = () => getComputedStyle(document.documentElement).getPropertyValue(VERIFIED_COLOUR_VAR).trim();
-
-// verifiedOutline(cells) is the overlay of the rows checked so far: their boundary drawn as outline() draws the
-// boundary of a selected region (the same function and width, its default width in that frame), in the accent colour,
-// over a halo OUTLINE_HALO px wide on each side (the width of the halo of outline()) in the theme's outline colour.
-// The accent alone does not reach 3 to 1 against every fill, and neither does the light halo of outline() (the dark
-// full fills of the dark theme), the dark halo does wherever the accent does not: line or halo at 3 to 1 on every fill,
-// full and soft, a Node test. The default width is read from the frame itself: outline() of no cell sets the line
-// width it uses and strokes nothing.
+// verifiedOutline(cells) is the overlay of the rows checked so far: accentOutline of src/render/overlays.mjs (their
+// boundary drawn as outline() draws the boundary of a selected region, in the accent colour over a halo in the theme's
+// outline colour: line or halo at 3 to 1 on every fill, full and soft, a Node test), id "verified", layer 45.
 export function verifiedOutline(cells) {
-  const none = outline([]);
-  const haloStyle = { colour: null, width: null };
-  const halo = outline(cells, haloStyle);
-  const lineStyle = { colour: null };
-  const line = outline(cells, lineStyle);
-  return {
-    id: "verified",
-    layer: 45,
-    draw(ctx, view) {
-      none.draw(ctx, view);
-      haloStyle.width = ctx.lineWidth + 2 * OUTLINE_HALO;
-      haloStyle.colour = view.colours.outline;
-      halo.draw(ctx, view);
-      lineStyle.colour = accentColour() || view.colours.outline;
-      line.draw(ctx, view);
-    },
-  };
+  return accentOutline(cells, { id: "verified", layer: 45 });
 }
 
 // subCount(view): the number of rows of the window (0 before the first verifyRow event).

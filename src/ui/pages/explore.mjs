@@ -24,6 +24,14 @@
 // moving, the part is computed again for the new window by the same rule (windowBoxOf, the transition rewindow), the
 // old outline shown meanwhile.
 //
+// Custom highlight: the address part b=i0,j0,i1,j1,... (readViewQuery of explore/state.mjs: the corners of a closed
+// polygon as offsets from the address's x and d, the cells inside it or on its edges by polygonCells of
+// src/core/polygon.mjs) shows those cells alone, at full strength with an outline in the accent colour (accentOutline,
+// the outline of the Algorithm page's checked rows). The chip counts its cells of each type. Beside it the ordinary
+// flood fill of its anchor (the cell of the first corner, customAnchor) runs as after a click on that cell, not drawn:
+// Edit, Algorithm and the download act on that region (or say why not, as for a click). b wins over sel. A click on
+// a cell is an ordinary selection and drops the highlight, as Escape and the chip's X do.
+//
 // The chip's page bar (widgets/page_bar.mjs: edit, open in the Lab) runs the shared actions of src/ui/actions.mjs. The
 // download button saves the witness of what the chip shows. The address bar holds the link of the view.
 //
@@ -34,7 +42,7 @@
 
 import { h, useStyles, loadJson } from "../dom.mjs";
 import { createHexView, kroneckerSource, planeOf, boxTest } from "../../render/hex_canvas.mjs";
-import { region, marker } from "../../render/overlays.mjs";
+import { region, marker, accentOutline } from "../../render/overlays.mjs";
 import { bigNumber, shortNumber } from "../widgets/bignum.mjs";
 import { iconButton, setIconLabel } from "../widgets/icons.mjs";
 import { createPageBar } from "../widgets/page_bar.mjs";
@@ -57,7 +65,7 @@ import { parsePacked, rebuildPacked, checkPackedHashes, PACKED_FORMAT } from "..
 import { cellsOfFlat, FILL_CAP } from "../../workers/floodfill.worker.mjs";
 import {
   createExplorerState, shownOf, chipOf, clearRule, fitWhy, subjectOf, downloadOf, blockedOf, detailsOf, modeOf, regionDataOf,
-  witnessDataOf, addressOf, fieldsOf, readViewQuery, witnessViewOf, selectionOffset,
+  witnessDataOf, addressOf, fieldsOf, readViewQuery, witnessViewOf, selectionOffset, customDataOf, customText, customColour, customAnchor,
 } from "./explore/state.mjs";
 import { keepVisit, takeVisit, restoreOf, nearOffset } from "./explore/cache.mjs";
 
@@ -260,7 +268,8 @@ export function readExplorePrefs(text) {
 let current = null;
 
 // testHandles() returns live handles of the mounted page for automated browser checks: { view, store, state (the
-// record of explore/state.mjs), shown, selection, mode, token, name, soft (the view draws soft cells), cells ("soft" |
+// record of explore/state.mjs), shown, selection, custom ({ ax, ad, corners, cells (count), counts } of a custom
+// highlight, or null), mode, token, name, soft (the view draws soft cells), cells ("soft" |
 // "full"), regionOnClick, regionRunning, chip (the chip state), overlays (ids of the overlays drawn now), opening
 // ({ cells, step } of a link being opened in the worker, or null), popover (id of the open popover or null), mountedMs, jobs (workers started by this mount), symbols (symbols computed on the main
 // thread since the mount), restored (what the mount showed from the last visit: "all", "witness", "region", "view" or
@@ -449,10 +458,10 @@ export function mount(root, ctx) {
     syncWorkers(s);
     const wid = (x) => (x.witness ? x.witness.id : null);
     // (a new part of the same region for a new window keeps them: res is the fill's record)
-    if (before.region.state !== s.region.state || before.region.res !== s.region.res || wid(before) !== wid(s)) detailsPop.close();
+    if (before.region.state !== s.region.state || before.region.res !== s.region.res || wid(before) !== wid(s) || before.custom !== s.custom) detailsPop.close();
     else if (detailsPop.isOpen() && before.witness !== s.witness) buildDetails(detailsPop.el);
     render();
-    if (before.selection !== s.selection || before.witness !== s.witness || before.openError !== s.openError) scheduleAddress();
+    if (before.selection !== s.selection || before.witness !== s.witness || before.openError !== s.openError || before.custom !== s.custom) scheduleAddress();
     return out;
   }
 
@@ -607,8 +616,10 @@ export function mount(root, ctx) {
   offs.push(view.onViewChange(() => (act(model.viewChanged, viewKey()), scheduleAddress(), rewindowAtRest())));
 
   // ---------- render ----------
-  // drawOverlays(s): the selected cell carries the cell marker, the shown region its outline. The view is soft when
-  // the switch says so, or around a complete shown region. Redrawn only when one of them or the centre changed.
+  // drawOverlays(s): the selected cell carries the cell marker, the shown region its outline (a custom highlight: its
+  // cells at full strength, outlined in the accent colour over a halo, accentOutline, the outline of the checked rows
+  // of the Algorithm page). The view is soft when the switch says so, or around a complete shown region. Redrawn only
+  // when one of them or the centre changed.
   function drawOverlays(s) {
     const shown = shownOf(s);
     const noFit = fitWhy(s);
@@ -618,7 +629,9 @@ export function mount(root, ctx) {
     let part = same ? drawn.part : [];
     if (!same && shown) {
       const off = offsetOf(shown.ax, shown.ad);
-      if (off) part = [region(off[0] === 0 && off[1] === 0 ? shown.cells : shown.cells.map(([i, j]) => [i + off[0], j + off[1]]))];
+      const cells = off && (off[0] === 0 && off[1] === 0 ? shown.cells : shown.cells.map(([i, j]) => [i + off[0], j + off[1]]));
+      if (off && shown.kind === "custom") part = [region(cells, { outline: false }), accentOutline(cells, { id: "custom" })];
+      else if (off) part = [region(cells)];
     }
     const selOff = s.selection ? offsetOf(s.selection.x, s.selection.d) : null;
     const list = [...(selOff ? [marker(selOff)] : []), ...part];
@@ -662,23 +675,28 @@ export function mount(root, ctx) {
     const part = chipOf(s);
     const r = s.region;
     const w = s.witness;
-    setData(regionPart, regionDataOf(s));
+    // a custom highlight is shown in the region part of the chip (its own data attributes, state "custom")
+    setData(regionPart, part === "custom" ? customDataOf(s) : regionDataOf(s));
     setData(witnessPart, witnessDataOf(s));
     if (part === "region") {
       setText(regionText, chipText(r.state === "running" ? { state: r.state, cells: r.last ? r.last.cells : 0 } : r.state === "stopped" ? { state: r.state, cells: r.count } : { state: r.state, area: r.res ? r.res.area : 0, genus: r.res ? r.res.genus : null }));
       setSwatch(regionSw, r.colour);
+    }
+    if (part === "custom") {
+      setText(regionText, customText(s.custom));
+      setSwatch(regionSw, customColour(s.custom.counts));
     }
     if (w) {
       setBadge(w);
       setSwatch(witSw, w.colour);
       setText(witText, w.verify && w.verify.pass !== true ? failChipText(w.verify) : chipText({ state: "witness", area: w.area, genus: w.genus }));
     }
-    regionPart.hidden = part !== "region";
+    regionPart.hidden = part !== "region" && part !== "custom";
     witnessPart.hidden = part !== "witness";
     chip.hidden = part === "idle";
     chip.dataset.state = part === "region" ? r.state : part;
     const finished = part === "region" && r.state !== "running";
-    const settled = part === "witness" || finished;
+    const settled = part === "witness" || part === "custom" || finished;
     stopBtn.hidden = r.state !== "running";
     // the shared actions of the region or witness shown (the same conditions as the Gallery's cards), disabled with
     // one reason for a witness that failed its check, and with the reason of regionActions when not offered. A region
@@ -786,7 +804,8 @@ export function mount(root, ctx) {
     if (restTimer) clearTimeout(restTimer);
     restTimer = 0;
     const r = model.get().region;
-    if (destroyed || !r.part) return;
+    // (while a custom highlight is shown the region of its anchor is not drawn: no part to follow the view)
+    if (destroyed || !r.part || model.get().custom) return;
     // a movement that has lasted MOVE_MS: the part again now (and at most every MOVE_MS), a short one waits for the rest
     if (!model.get().windowJob && t - moveStart >= MOVE_MS && t - lastRewindow >= MOVE_MS) rewindowNow();
     restTimer = setTimeout(() => {
@@ -997,6 +1016,12 @@ export function mount(root, ctx) {
     restored = part.witness ? (part.selection ? "all" : "witness") : part.selection ? "region" : "view";
     act(model.restore, part, { fromAddress, shownAt: performance.now() });
     if (part.refill) act(model.selectCell, part.selection.x, part.selection.d, { fill: true });
+    // a kept custom highlight whose anchor region was not kept: that region is computed again (what Edit and
+    // Algorithm open), the highlight stays
+    else if (part.custom && model.get().region.state === "idle") {
+      const a = customAnchor(part.custom);
+      act(model.startFill, a.x, a.d);
+    }
     mirrorFields(view.getView());
     // a kept part of a region that is not complete follows the window of this view (the rule after a pan or zoom)
     rewindowAtRest();
@@ -1215,9 +1240,13 @@ export function mount(root, ctx) {
       else openNamed(query.w, witnessViewOf(query));
     } else {
       const sel = q.x !== null ? q.sel : Array.isArray(sv.selection) ? sv.selection : null;
-      // a selected cell in the address (or kept from the last visit) reopens with its region: the kept one when it is
-      // that cell's, else computed
-      if (sel) {
+      // a custom highlight in the address (b, the corners of a polygon as offsets from the address's x and d, read only
+      // with them): its cells are shown, no flood fill runs. readViewQuery has already dropped sel then (b wins).
+      if (q.x !== null && q.b) {
+        act(model.showCustom, x, d, q.b);
+      } else if (sel) {
+        // a selected cell in the address (or kept from the last visit) reopens with its region: the kept one when it
+        // is that cell's, else computed
         const sx = x + BigInt(sel[0]);
         const sd = d + BigInt(sel[1]);
         const part = restoreOf(kept, { kind: "plain", sel: { x: sx, d: sd } });
@@ -1241,6 +1270,7 @@ export function mount(root, ctx) {
       view, store, state: s, mode: modeOf(s), token: w.token || null, name: w.name || null, soft: view.isSoft(), cells: s.prefs.cells,
       shown: sh ? { ax: sh.ax.toString(), ad: sh.ad.toString(), cells: sh.cells, fade: sh.fade, kind: sh.kind, part: sh.part || null } : null,
       selection: s.selection ? { x: s.selection.x.toString(), d: s.selection.d.toString() } : null,
+      custom: s.custom ? { ax: s.custom.ax.toString(), ad: s.custom.ad.toString(), corners: s.custom.corners, cells: s.custom.cells.length, counts: { ...s.custom.counts } } : null,
       regionOnClick: s.prefs.regionOnClick, regionRunning: s.job !== null, chip: chip.dataset.state, overlays: drawn ? drawn.ids.slice() : [],
       opening: s.opening ? { cells: s.opening.cells, step: s.opening.step } : null, popover: group.openOne() ? group.openOne().el.id : null,
       mountedMs: performance.now() - tMount,

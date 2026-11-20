@@ -147,6 +147,46 @@ export function outline(cells, style = {}) {
   };
 }
 
+// The CSS variable of the accent colour (--select of styles/base.css: the timeline's progress, the step shown), the
+// colour of accentOutline.
+export const ACCENT_COLOUR_VAR = "--select";
+
+// accentColour() is the present value of ACCENT_COLOUR_VAR on the page, "" without a page (read at every frame, so a
+// theme change redraws the line in the new theme).
+export function accentColour() {
+  if (typeof getComputedStyle !== "function" || typeof document === "undefined" || !document.documentElement) return "";
+  return getComputedStyle(document.documentElement).getPropertyValue(ACCENT_COLOUR_VAR).trim();
+}
+
+// accentOutline(cells, { id, layer }) strokes the boundary of a cell set as outline() strokes the boundary of a selected
+// region (the same function and width, its default width in that frame), in the accent colour (accentColour, the
+// theme's outline colour when the page has none), over a halo OUTLINE_HALO px wide on each side (the width of the halo
+// of outline()) in the theme's outline colour. The accent alone does not reach 3 to 1 against every fill, and neither
+// does the light halo of outline() (the dark full fills of the dark theme), the dark halo does wherever the accent
+// does not: line or halo at 3 to 1 on every fill, full and soft. The default width is read from the frame itself:
+// outline() of no cell sets the line width it uses and strokes nothing. Defaults: id "accent", layer 45 (above
+// outline, below hollowMarks and marker). The Algorithm page outlines its checked rows with it, the Explorer and the
+// Gallery a custom highlight.
+export function accentOutline(cells, { id = "accent", layer = 45 } = {}) {
+  const none = outline([]);
+  const haloStyle = { colour: null, width: null };
+  const halo = outline(cells, haloStyle);
+  const lineStyle = { colour: null };
+  const line = outline(cells, lineStyle);
+  return {
+    id,
+    layer,
+    draw(ctx, view) {
+      none.draw(ctx, view);
+      haloStyle.width = ctx.lineWidth + 2 * OUTLINE_HALO;
+      haloStyle.colour = view.colours.outline;
+      halo.draw(ctx, view);
+      lineStyle.colour = accentColour() || view.colours.outline;
+      line.draw(ctx, view);
+    },
+  };
+}
+
 // region(cells, style) draws the listed cells at full strength (the fill of their symbol, for a view drawn soft or
 // faded around them) and then strokes their boundary as outline(cells, style) does. style: { colour, width (of the
 // outline, defaults as outline), outline (false: fills only), id (default "region") }. Layer 15: above fadeOutside,

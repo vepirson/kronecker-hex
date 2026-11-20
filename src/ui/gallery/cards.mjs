@@ -7,7 +7,7 @@
 
 import { h } from "../dom.mjs";
 import { renderWindow, fittedWindow } from "../../render/hex_canvas.mjs";
-import { region } from "../../render/overlays.mjs";
+import { region, accentOutline } from "../../render/overlays.mjs";
 import { CodedError } from "../../core/bigint_utils.mjs";
 import { icon } from "../widgets/icons.mjs";
 import { rovingFocus } from "../widgets/pager.mjs";
@@ -122,12 +122,13 @@ export const CARD_SLICE_MS = 10;
 
 const nextTask = () => new Promise((r) => setTimeout(r, 0));
 
-// drawRegion(canvas, { source, cells, side, signal, fit }) draws the region (offset cells relative to the source
-// centre) into a square of side pixels: every cell soft, the region at full strength with its outline. fit (optional)
-// reuses an earlier fitCard result. The symbols of the window are computed first, in slices of CARD_SLICE_MS between
-// frames, then the window is painted once (renderWindow finds every cell computed). Rejects with code "aborted" when
-// signal aborts. Resolves with { meta (renderWindow record), fit }.
-export async function drawRegion(canvas, { source, cells, side, signal, fit = null }) {
+// drawRegion(canvas, { source, cells, side, signal, fit, custom }) draws the region (offset cells relative to the
+// source centre) into a square of side pixels: every cell soft, the region at full strength with its outline. custom:
+// the cells are a custom highlight (a square of the Gallery), outlined as the Explorer outlines its address part b (the
+// accent colour over a halo, accentOutline). fit (optional) reuses an earlier fitCard result. The symbols of the window
+// are computed first, in slices of CARD_SLICE_MS between frames, then the window is painted once (renderWindow finds
+// every cell computed). Rejects with code "aborted" when signal aborts. Resolves with { meta (renderWindow record), fit }.
+export async function drawRegion(canvas, { source, cells, side, signal, fit = null, custom = false }) {
   const f = fit || fitCard(cells, side);
   const rows = fittedWindow(f.bounds, f.cell, f.pad).rows;
   while (source.work(rows, performance.now() + CARD_SLICE_MS) > 0) {
@@ -136,7 +137,7 @@ export async function drawRegion(canvas, { source, cells, side, signal, fit = nu
   }
   const meta = await renderWindow(canvas, {
     source, bounds: f.bounds, cell: f.cell, pad: f.pad, soft: true, signal,
-    overlays: [region(cells, regionStyle(f.cell))],
+    overlays: custom ? [region(cells, { outline: false }), accentOutline(cells, { id: "custom" })] : [region(cells, regionStyle(f.cell))],
   });
   return { meta, fit: f };
 }

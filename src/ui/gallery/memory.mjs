@@ -23,10 +23,11 @@ const checked = new Map();
 const pictures = new Map(); // key -> { canvas, bytes }, in order of last use
 let pictureBytes = 0;
 
-// cardKey(card) is the key of a card: its reference ("token:<label>", "witness:<file>", "natural:<x>,<d>") or, for a
-// family card, "family:" and its familyKey (the type is part of it).
+// cardKey(card) is the key of a card: its reference ("token:<label>", "witness:<file>", "natural:<x>,<d>",
+// "square:<section>:<n>") or, for a family card, "family:" and its familyKey (the type is part of it).
 export function cardKey(card) {
   if (card.kind === "family") return `family:${familyKey(card)}`;
+  if (card.kind === "square") return `square:${card.section}:${card.n}`;
   if (card.kind === "token") return `token:${card.label}`;
   if (card.kind === "witness") return `witness:${card.file}`;
   return `natural:${card.x},${card.d}`;

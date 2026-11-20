@@ -30,6 +30,9 @@ export { ROW_TOO_LONG, longestRow, shapeProblem } from "../construct/row_limit.m
 // The reason of the edit and Lab actions of a region found in the grid whose flood fill did not end complete
 // (infinite, larger than the cap, stopped or failed), when the subject gives no reason of its own.
 export const NOT_COMPLETE = "Region not complete";
+// The reason of the edit and Lab actions (and of the Explorer's download) of a custom highlight whose anchor region is
+// not computed: its cells are a shape chosen by an address, not a region of the grid.
+export const NOT_A_REGION = "Not a region";
 
 // explorerHref(query) is the Explorer's address of a view or of a shipped witness: "#/explore" with the query (x, d,
 // z, sel, or w with z and at), the bare "#/explore" for null.
@@ -101,7 +104,10 @@ export function tokenInLink(text) {
 //         token or a complete region of the grid when shapeProblem accepts its shape (the Lab builds it live), else
 //         null (labWhy says why: ROW_TOO_LONG).
 //   A region of the grid that is not complete offers neither, both with the reason why (else NOT_COMPLETE), except the
-//   Lab's example of the home cell.
+//   Lab's example of the home cell. A custom highlight as subject (kind "custom": the Explorer's address part b while
+//   the region of its anchor is not computed) offers neither, both with the reason NOT_A_REGION. (Once that region is
+//   computed the Explorer gives the region itself as subject. A Gallery square is such a subject when it is not a
+//   whole region, squareSubject of gallery/model.mjs.)
 export function regionActions(subject) {
   const acts = shapeActions(subject);
   return isHomeCell(subject) ? { ...acts, lab: { example: HOME_CELL_EXAMPLE }, labWhy: null } : acts;
@@ -121,6 +127,7 @@ function shapeActions(subject) {
     if (s.token) return { edit: has ? shape : null, lab: { token: s.token }, labWhy: null, editWhy: null };
     return has ? live() : none;
   }
+  if (s.kind === "custom") return { ...none, labWhy: NOT_A_REGION, editWhy: NOT_A_REGION };
   if (s.kind === "region" && s.complete === true && has) return live();
   if (s.kind === "region") {
     const why = typeof s.why === "string" && s.why ? s.why : NOT_COMPLETE;

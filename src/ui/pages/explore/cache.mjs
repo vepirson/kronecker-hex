@@ -84,7 +84,8 @@ export function regionReusable(entry, x, d) {
 // them at the first view that is not the one of the click). want, from the address:
 //   { kind: "bare" }                      #/explore with no query: everything kept (the view is the kept place). A
 //                                          region that may not be reused is left out (its cell stays selected and
-//                                          its flood fill starts again: refill true)
+//                                          its flood fill starts again: refill true). A kept custom highlight comes
+//                                          as custom (absent without one)
 //   { kind: "token", token }               the kept witness when it has this token
 //   { kind: "named", name }                the kept witness when it is the shipped witness of this name
 //   { kind: "plain", sel: { x, d } }      the kept selection and region when they are those of the address (an
@@ -95,8 +96,16 @@ export function restoreOf(entry, want) {
   const idle = { state: "idle" };
   if (want.kind === "bare") {
     const sel = s.selection;
-    const reuse = s.region.state === "idle" || (!!sel && regionReusable(entry, sel.x, sel.d));
-    return { selection: sel, fields: s.fields, region: reuse ? s.region : idle, witness: s.witness, refill: !reuse && !!sel };
+    // the anchor of a custom highlight: the cell of its first corner (customAnchor of explore/state.mjs), whose region
+    // is computed beside it for Edit and Algorithm
+    const c = s.custom;
+    const anchor = c ? { x: c.ax + BigInt(c.corners[0][0]), d: c.ad + BigInt(c.corners[0][1]) } : null;
+    const reuse = s.region.state === "idle" || (!!sel && regionReusable(entry, sel.x, sel.d)) || (!!anchor && regionReusable(entry, anchor.x, anchor.d));
+    const out = { selection: sel, fields: s.fields, region: reuse ? s.region : idle, witness: s.witness, refill: !reuse && !!sel };
+    // a custom highlight comes back with the rest (no selection or witness beside it; its anchor's region when it may be
+    // reused, else the page computes it again)
+    if (c) out.custom = c;
+    return out;
   }
   if (want.kind === "token" || want.kind === "named") {
     const w = s.witness;

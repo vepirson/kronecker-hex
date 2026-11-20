@@ -21,6 +21,11 @@
 // own target), the pencil (its shape in the editor, in the card's region type), the flask (the algorithm), disabled
 // with its reason alone when the algorithm does not take the shape. The pencil and the flask first make the card's
 // region the selection of the site, which the header's Edit and Algorithm then open too.
+// A section of kind "squares" (A052157) shows one card per term: its n x n square drawn as the Explorer's custom
+// highlight (accent outline, not a flood filled region), checked here (every cell of type 0), its eye the Explorer's
+// address part b of the square, its pencil and flask enabled only when the flood fill of (r, s) is complete and is
+// exactly the square (squareIsRegion of gallery/model.mjs: the square is a whole region, they then open it), else both
+// shown disabled with "Not a region". Its title holds an external link.
 
 import { h, useStyles, loadJson } from "../dom.mjs";
 import { mathText } from "../widgets/math.mjs";
@@ -30,10 +35,9 @@ import { openToken } from "../../formats/token.mjs";
 import { makeWitness } from "../../formats/witness.mjs";
 import {
   SECTIONS, sectionCards, sectionSlots, sectionPages, pageName, familyKey, statedOf, cardHref, captionParts,
-  typeText, symmetryOrder, NATURAL_CAP, FAMILY_TOKENS_FILE,
+  typeText, symmetryOrder, NATURAL_CAP, FAMILY_TOKENS_FILE, squareOf, squareFacts, squareSubject,
 } from "../gallery/model.mjs";
-import { createCardElement, createSlot, typeSwitch, drawRegion, createRegionWorker, createConstructWorker, watchTheme } from "../gallery/cards.mjs";
-import { loadFamilyCard, keepChecked, checkedOf, pictureKey, keepPicture, showPicture, hasPicture, memoryStats } from "../gallery/memory.mjs";
+import { createCardElement, createSlot, typeSwitch, drawRegion, createRegionWorker, createConstructWorker, watchTheme } from "../gallery/cards.mjs";import { loadFamilyCard, keepChecked, checkedOf, pictureKey, keepPicture, showPicture, hasPicture, memoryStats } from "../gallery/memory.mjs";
 import { createPager, clampPage } from "../widgets/pager.mjs";
 import { pageIconButton, pageIconLink, PAGE_ACTIONS } from "../widgets/icons.mjs";
 import { regionActions, openInEditor, openInLab } from "../actions.mjs";
@@ -72,6 +76,16 @@ function tokenWitness(text, id) {
   return openedWitness(openToken(text), id);
 }
 
+// linkedTitle(title, { text, href }) is the span of a section title (plain text, no formula) whose first occurrence of
+// text is an external link to href, opened as the site's other external links (a new tab, no referrer). The section's
+// button of the title row keeps the plain title (a link inside a button is not allowed).
+function linkedTitle(title, { text, href }) {
+  const k = title.indexOf(text);
+  if (k < 0) return h("span", null, title);
+  const a = h("a", { href, target: "_blank", rel: "noopener noreferrer" }, text);
+  return h("span", null, title.slice(0, k), a, title.slice(k + text.length));
+}
+
 // the device pixel ratio the pictures are drawn at (as renderWindow takes it)
 const pixelRatio = () => (typeof devicePixelRatio === "number" && devicePixelRatio > 0 ? devicePixelRatio : 1);
 
@@ -91,6 +105,27 @@ export function mount(root, ctx = {}) {
   // ---------- preparing a card: x0, d0, region cells, the check, the link ----------
   async function prepare(c, signal) {
     const card = c.card;
+    if (card.kind === "square") {
+      // a square of the section A052157: its n^2 cells drawn as the Explorer's custom highlight (custom), checked here
+      // (squareFacts: every cell of type 0), its link the Explorer's address part b of the square. Its eye, pencil and
+      // flask: (r, s) is flood filled with the fill and cap of a region card of the grid (natural below), and the pencil
+      // and the flask open that region only when it is complete and is exactly the square (squareIsRegion), else both
+      // are shown disabled with "Not a region" (squareSubject, showDisabled of cardActions). A failed fill counts as
+      // not a region.
+      const { x0, d0, cells } = squareOf(card);
+      let fill = null;
+      try {
+        const r = await worker.fill(card.r, card.s, NATURAL_CAP);
+        fill = { complete: r.result.complete === true, cells: r.cells, colour: r.result.colour };
+      } catch (e) {
+        if (e && e.code === "aborted") throw e;
+        console.warn(e);
+      }
+      return {
+        colour: 0, x0, d0, cells, href: cardHref(card), custom: true, showDisabled: true, subject: squareSubject(card, fill),
+        check: async () => squareFacts(card),
+      };
+    }
     if (card.kind === "family") {
       // a stored token (opened in the construct worker: its x has up to about 130000 digits), else this visit's
       // construction, else a live construction in the construct worker
@@ -153,18 +188,23 @@ export function mount(root, ctx = {}) {
   }
 
   // ---------- the action icons of a card: eye, pencil and flask, each enabled or disabled with its reason ----------
-  // (a disabled flask has the reason alone as its tooltip, its accessible name is "<action>: <reason>")
+  // (a disabled flask has the reason alone as its tooltip, its accessible name is "<action>: <reason>"). A pencil that
+  // is not offered is left out, except on a card with showDisabled (the squares of A052157): there it is shown disabled
+  // with its reason, as the flask.
   function cardActions(p) {
     const acts = regionActions(p.subject);
     const nav = { store: ctx.store, navigate: ctx.navigate };
     const canHand = !!(ctx.store && ctx.navigate);
-    const why = acts.labWhy || "not available";
+    const off = (act, why) => pageIconButton(act, why.charAt(0).toUpperCase() + why.slice(1), { class: "gal-act", dataset: { act }, "aria-label": `${PAGE_ACTIONS[act]}: ${why}`, disabled: true });
     const lab = acts.lab && canHand
       ? pageIconButton("lab", undefined, { class: "gal-act", dataset: { act: "lab" }, onclick: () => openInLab(nav, p.subject) })
-      : pageIconButton("lab", why.charAt(0).toUpperCase() + why.slice(1), { class: "gal-act", dataset: { act: "lab" }, "aria-label": `${PAGE_ACTIONS.lab}: ${why}`, disabled: true });
+      : off("lab", acts.labWhy || "not available");
+    const edit = acts.edit && canHand
+      ? pageIconButton("edit", undefined, { class: "gal-act", dataset: { act: "edit" }, onclick: () => openInEditor(nav, p.subject) })
+      : p.showDisabled ? off("edit", acts.editWhy || "not available") : null;
     return [
       p.href ? pageIconLink("explore", p.href, undefined, { class: "gal-act", dataset: { act: "explore" } }) : null,
-      acts.edit && canHand ? pageIconButton("edit", undefined, { class: "gal-act", dataset: { act: "edit" }, onclick: () => openInEditor(nav, p.subject) }) : null,
+      edit,
       lab,
     ];
   }
@@ -182,7 +222,7 @@ export function mount(root, ctx = {}) {
     const source = kroneckerSource(p.x0, p.d0);
     const about = showPicture(key, c.ui.canvas);
     if (about) return { source, fit: about.fit, meta: about.meta, kept: true };
-    const drawn = await drawRegion(c.ui.canvas, { source, cells: p.cells, side, signal });
+    const drawn = await drawRegion(c.ui.canvas, { source, cells: p.cells, side, signal, custom: !!p.custom });
     keepPicture(key, c.ui.canvas, { fit: drawn.fit, meta: drawn.meta });
     return { source, fit: drawn.fit, meta: drawn.meta, kept: false };
   }
@@ -221,16 +261,16 @@ export function mount(root, ctx = {}) {
       const side = sideOf(c);
       const drawn = await drawCard(c, p, side, ctl.signal);
       const facts = await checking;
-      if (!known) keepChecked(c.card, { prepared: { colour: p.colour, x0: p.x0, d0: p.d0, cells: p.cells, href: p.href, subject: p.subject, from: p.from }, facts });
+      if (!known) keepChecked(c.card, { prepared: { colour: p.colour, x0: p.x0, d0: p.d0, cells: p.cells, href: p.href, subject: p.subject, from: p.from, custom: !!p.custom, showDisabled: !!p.showDisabled }, facts });
       if (stale()) return;
-      c.drawn = { source: drawn.source, cells: p.cells, fit: drawn.fit, meta: drawn.meta, side, kept: drawn.kept };
+      c.drawn = { source: drawn.source, cells: p.cells, fit: drawn.fit, meta: drawn.meta, side, kept: drawn.kept, custom: !!p.custom };
       c.colour = p.colour;
       const stated = statedOf(c.card);
       const reasons = facts.reasons.slice();
       if (facts.genus !== stated.genus) reasons.push(`genus ${facts.genus}, stated ${stated.genus}`);
       if (facts.area !== stated.area) reasons.push(`area ${facts.area}, stated ${stated.area}`);
       c.facts = facts;
-      const name = `region of type ${typeText(p.colour)}`;
+      const name = c.card.kind === "square" ? `${c.card.n} x ${c.card.n} square of type ${typeText(p.colour)}` : `region of type ${typeText(p.colour)}`;
       if (facts.pass && reasons.length === 0) {
         const parts = captionParts(c.card, facts);
         c.caption = parts.join(" | ");
@@ -290,7 +330,7 @@ export function mount(root, ctx = {}) {
       const ctl = new AbortController();
       c.redrawAbort = ctl;
       try {
-        await drawRegion(c.ui.canvas, { source: c.drawn.source, cells: c.drawn.cells, side: c.drawn.side, signal: ctl.signal, fit: c.drawn.fit });
+        await drawRegion(c.ui.canvas, { source: c.drawn.source, cells: c.drawn.cells, side: c.drawn.side, signal: ctl.signal, fit: c.drawn.fit, custom: c.drawn.custom });
         keepPicture(pictureKeyOf(c, c.drawn.side), c.ui.canvas, { fit: c.drawn.fit, meta: c.drawn.meta });
       } catch (e) {
         if (!(e && e.code === "aborted")) console.warn(e);
@@ -301,11 +341,12 @@ export function mount(root, ctx = {}) {
 
   // ---------- the cards of a section: made for its present page and type, the old ones dropped ----------
   function makeCard(sec, card) {
-    const ui = createCardElement({ label: `region of genus ${statedOf(card).genus}`, text: card.text || null });
+    const label = card.kind === "square" ? `${card.n} x ${card.n} square` : `region of genus ${statedOf(card).genus}`;
+    const ui = createCardElement({ label, text: card.text || null });
     ui.el.dataset.group = sec.def.id;
     ui.el.dataset.kind = card.kind;
     if (card.kind === "token") ui.setHref(cardHref(card, st.tokens[card.label]));
-    else if (card.kind === "witness" || card.kind === "natural") ui.setHref(cardHref(card));
+    else if (card.kind === "witness" || card.kind === "natural" || card.kind === "square") ui.setHref(cardHref(card));
     const c = { index: 0, group: sec.def.id, card, ui, state: "wait", gen: 0, near: false, queued: false, drawn: null, facts: null, caption: "", reason: null, tStart: null, tDone: null, colour: null };
     ui.el.__galCard = c;
     return c;
@@ -419,7 +460,7 @@ export function mount(root, ctx = {}) {
       };
       // a title may hold a $...$ formula (the name of a family of shapes), typeset. The heading takes the focus of the
       // section's button of the title row.
-      sec.head = h("h2", { class: "gal-h", tabindex: "-1" }, mathText(h("span"), def.title));
+      sec.head = h("h2", { class: "gal-h", tabindex: "-1" }, def.link ? linkedTitle(def.title, def.link) : mathText(h("span"), def.title));
       sec.jump = h("button", { type: "button", class: "gal-jump", dataset: { group: def.id }, onclick: () => jumpTo(sec) }, mathText(h("span"), def.title));
       jumps.append(sec.jump);
       if (colours.length > 1) {

@@ -60,7 +60,7 @@ test("the 2000-digit rule: 2000 digits go into the address, 2001 do not (the min
 });
 
 test("readViewQuery: defaults, clamped zoom, bad parts reported and ignored", () => {
-  assert.deepEqual(readViewQuery({}), { x: null, d: null, cell: null, sel: null, problems: [] });
+  assert.deepEqual(readViewQuery({}), { x: null, d: null, cell: null, sel: null, b: null, problems: [] });
   const r = readViewQuery({ x: "12a", d: "3", z: "1000", sel: "1;2" });
   assert.equal(r.x, null);
   assert.equal(r.d, null);
